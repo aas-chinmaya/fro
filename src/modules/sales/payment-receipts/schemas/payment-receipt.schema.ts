@@ -17,50 +17,47 @@ function stripUnsafe(raw: string): string {
     .trim();
 }
 
-const requiredText = (max: number, msg: string) =>
-  z
-    .string({ required_error: msg })
-    .transform((v) => stripUnsafe(v))
-    .pipe(z.string().min(1, msg).max(max));
+/** Always outputs string (never null/undefined) so RHF Resolver matches FormValues */
+const str = (max: number) =>
+  z.preprocess(
+    (v) => stripUnsafe(String(v ?? "")).slice(0, max),
+    z.string(),
+  );
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .optional()
-    .nullable()
-    .transform((v) => {
-      const s = stripUnsafe(String(v ?? ""));
-      return s ? s.slice(0, max) : "";
-    });
-
-const optionalPhone = z
-  .string()
-  .optional()
-  .nullable()
-  .transform((v) => stripUnsafe(String(v ?? "")).slice(0, LIMITS.PHONE));
+const requiredStr = (max: number, msg: string) =>
+  z.preprocess(
+    (v) => stripUnsafe(String(v ?? "")).slice(0, max),
+    z.string().min(1, msg).max(max),
+  );
 
 export const paymentReceiptFormSchema = z
   .object({
     receiptDate: z
       .string({ required_error: "Receipt date is required" })
       .min(1, "Receipt date is required"),
-    financialYear: optionalText(LIMITS.FY),
+    financialYear: str(LIMITS.FY),
 
-    customerId: z
-      .string({ required_error: "Customer is required" })
-      .min(1, "Please select a customer"),
-    customerName: requiredText(LIMITS.NAME, "Customer name is required"),
-    customerPhone: optionalPhone,
-    customerGSTIN: optionalText(LIMITS.GSTIN),
+    customerId: requiredStr(LIMITS.INVOICE_ID, "Please select a customer"),
+    customerName: requiredStr(LIMITS.NAME, "Customer name is required"),
+    customerPhone: str(LIMITS.PHONE),
+    customerGSTIN: str(LIMITS.GSTIN),
 
-    invoiceId: optionalText(LIMITS.INVOICE_ID),
+    invoiceId: str(LIMITS.INVOICE_ID),
     paymentMethod: z.enum(["CASH", "UPI", "CARD", "NET_BANKING"]),
-    transactionReference: optionalText(LIMITS.REF),
-    amount: z.coerce
-      .number({ invalid_type_error: "Amount is required" })
-      .positive("Amount must be greater than 0")
-      .max(10_00_00_000, "Amount exceeds limit"),
-    notes: optionalText(LIMITS.NOTES),
+    transactionReference: str(LIMITS.REF),
+    amount: z.preprocess(
+      (v) => {
+        if (typeof v === "number") return v;
+        if (v === "" || v === null || v === undefined) return 0;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      },
+      z
+        .number({ invalid_type_error: "Amount is required" })
+        .positive("Amount must be greater than 0")
+        .max(10_00_00_000, "Amount exceeds limit"),
+    ),
+    notes: str(LIMITS.NOTES),
   })
   .superRefine((data, ctx) => {
     if (data.paymentMethod !== "CASH") {
@@ -84,12 +81,10 @@ export function sanitizeFieldInput(raw: string, maxLen: number): string {
 /** YYYY-MM-DD (or any parseable) → full ISO datetime */
 export function toIsoReceiptDate(dateStr: string): string {
   if (!dateStr) return new Date().toISOString();
-  // Already full ISO
   if (dateStr.includes("T")) {
     const d = new Date(dateStr);
     return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
-  // date-only → noon local-ish fixed as UTC midday to avoid TZ day shift noise
   const d = new Date(`${dateStr}T12:00:00.000Z`);
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
@@ -102,7 +97,9 @@ export function computeFinancialYear(dateStr: string): string {
       const now = new Date();
       const y = now.getFullYear();
       const m = now.getMonth() + 1;
-      return m >= 4 ? `${y}-${String(y + 1).slice(-2)}` : `${y - 1}-${String(y).slice(-2)}`;
+      return m >= 4
+        ? `${y}-${String(y + 1).slice(-2)}`
+        : `${y - 1}-${String(y).slice(-2)}`;
     }
     const y = d.getFullYear();
     const m = d.getMonth() + 1;

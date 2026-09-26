@@ -20,156 +20,157 @@ export default function ReceiptPreview({
   const notes = paymentReceipt.notes;
 
   return (
-    <div className="h-full w-full bg-gray-100">
-      <div className="h-full w-full bg-white shadow-sm print:shadow-none">
-        <div className="border-b border-gray-200 px-6 py-5 text-center">
-          <h1 className="text-lg font-bold tracking-wide text-gray-900">
-            PAYMENT RECEIPT
-          </h1>
-          <p className="mt-1.5 text-xs text-gray-500">
-            Date: {formatDate(paymentReceipt.receiptDate)}
+    <div className="w-full border-b border-gray-900 bg-white">
+      {/* Title */}
+      <div className="border-b border-gray-900 px-3 py-3 text-center sm:px-5 sm:py-4">
+        <h1 className="text-base font-bold tracking-wide text-gray-900 sm:text-lg">
+          PAYMENT RECEIPT
+        </h1>
+        <p className="mt-1 text-[11px] text-gray-500 sm:text-xs">
+          Date: {formatDate(paymentReceipt.receiptDate)}
+        </p>
+      </div>
+
+      {/* Meta — 1 col mobile, 3 col desktop */}
+      <div className="grid grid-cols-1 border-b border-gray-900 text-sm sm:grid-cols-3">
+        <div className="border-b border-gray-900 px-3 py-2.5 sm:border-b-0 sm:border-r sm:px-5 sm:py-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+            Receipt No.
+          </p>
+          <p className="mt-0.5 font-semibold text-gray-900">
+            {paymentReceipt.receiptNumber || "—"}
           </p>
         </div>
-
-        <div className="grid grid-cols-3 border-b border-gray-200 text-sm">
-          <div className="border-r border-gray-200 px-5 py-3.5">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
-              Receipt No.
-            </p>
-            <p className="mt-1 font-semibold text-gray-900">
-              {paymentReceipt.receiptNumber || "—"}
-            </p>
-          </div>
-          <div className="border-r border-gray-200 px-5 py-3.5">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
-              Financial Year
-            </p>
-            <p className="mt-1 font-semibold text-gray-900">
-              {paymentReceipt.financialYear || "—"}
-            </p>
-          </div>
-          <div className="px-5 py-3.5">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
-              Status
-            </p>
-            <p className="mt-1 font-semibold text-gray-900">
-              {formatLabel(paymentReceipt.receiptStatus)}
-            </p>
-          </div>
+        <div className="border-b border-gray-900 px-3 py-2.5 sm:border-b-0 sm:border-r sm:px-5 sm:py-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+            Financial Year
+          </p>
+          <p className="mt-0.5 font-semibold text-gray-900">
+            {paymentReceipt.financialYear || "—"}
+          </p>
         </div>
-
-        <div className="border-b border-gray-200">
-          <div className="px-5 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              Received From
-            </p>
-          </div>
-          <div className="px-5 py-4">
-            <table className="w-full text-sm">
-              <tbody>
-                <Row
-                  label="Customer Name"
-                  value={paymentReceipt.customerName || customer?.name}
-                />
-                {customer?.companyName ? (
-                  <Row label="Company" value={customer.companyName} />
-                ) : null}
-                <Row
-                  label="Phone"
-                  value={paymentReceipt.customerPhone || customer?.mobile}
-                />
-                {customer?.email ? (
-                  <Row label="Email" value={customer.email} />
-                ) : null}
-                <Row
-                  label="GSTIN"
-                  value={paymentReceipt.customerGSTIN || customer?.gstin}
-                />
-                {customer?.pan ? <Row label="PAN" value={customer.pan} /> : null}
-              </tbody>
-            </table>
-          </div>
+        <div className="px-3 py-2.5 sm:px-5 sm:py-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+            Status
+          </p>
+          <p className="mt-0.5 font-semibold text-gray-900">
+            {formatLabel(paymentReceipt.receiptStatus)}
+          </p>
         </div>
-
-        <div className="border-b border-gray-200">
-          <div className="px-5 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              Payment Details
-            </p>
-          </div>
-          <div className="px-5 py-4">
-            <table className="w-full text-sm">
-              <tbody>
-                <Row
-                  label="Source"
-                  value={formatLabel(paymentReceipt.receiptSource)}
-                />
-                <Row
-                  label="Payment Method"
-                  value={formatLabel(payment?.paymentMethod || "CASH")}
-                />
-                <Row
-                  label="Transaction Reference"
-                  value={payment?.transactionReference}
-                />
-                {payment?.paymentNumber ? (
-                  <Row label="Payment No." value={payment.paymentNumber} />
-                ) : null}
-                {payment?.paymentStatus ? (
-                  <Row
-                    label="Payment Status"
-                    value={formatLabel(payment.paymentStatus)}
-                  />
-                ) : null}
-                {payment?.documentNumber ? (
-                  <Row label="Document No." value={payment.documentNumber} />
-                ) : null}
-                {paymentReceipt.adjustmentStatus ? (
-                  <Row
-                    label="Adjustment"
-                    value={formatLabel(paymentReceipt.adjustmentStatus)}
-                  />
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-200">
-          <div className="flex items-center justify-between px-5 py-5">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                Amount Received (Rs.)
-              </p>
-              <p className="mt-1.5 text-xs text-gray-500">
-                {numberToWords(amount)} Only
-              </p>
-            </div>
-            <p className="flex items-center gap-1 text-xl font-semibold text-gray-900">
-              <IndianRupee className="h-5 w-5" strokeWidth={2.5} />
-              {formattedAmount}
-            </p>
-          </div>
-        </div>
-
-        {notes ? (
-          <div className="border-b border-gray-200">
-            <div className="px-5 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                Additional Info
-              </p>
-            </div>
-            <div className="space-y-3 px-5 py-4 text-sm">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                  Notes
-                </p>
-                <p className="mt-1 whitespace-pre-wrap text-gray-800">{notes}</p>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
+
+      {/* Received From */}
+      <div className="border-b border-gray-900">
+        <div className="border-b border-gray-200 px-3 py-1.5 sm:px-5 sm:py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-800">
+            Received From
+          </p>
+        </div>
+        <div className="px-3 py-2.5 sm:px-5 sm:py-3">
+          <table className="w-full text-sm">
+            <tbody>
+              <Row
+                label="Customer Name"
+                value={paymentReceipt.customerName || customer?.name}
+              />
+              {customer?.companyName ? (
+                <Row label="Company" value={customer.companyName} />
+              ) : null}
+              <Row
+                label="Phone"
+                value={paymentReceipt.customerPhone || customer?.mobile}
+              />
+              {customer?.email ? (
+                <Row label="Email" value={customer.email} />
+              ) : null}
+              <Row
+                label="GSTIN"
+                value={paymentReceipt.customerGSTIN || customer?.gstin}
+              />
+              {customer?.pan ? <Row label="PAN" value={customer.pan} /> : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Payment Details */}
+      <div className="border-b border-gray-900">
+        <div className="border-b border-gray-200 px-3 py-1.5 sm:px-5 sm:py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-800">
+            Payment Details
+          </p>
+        </div>
+        <div className="px-3 py-2.5 sm:px-5 sm:py-3">
+          <table className="w-full text-sm">
+            <tbody>
+              <Row
+                label="Source"
+                value={formatLabel(paymentReceipt.receiptSource)}
+              />
+              <Row
+                label="Payment Method"
+                value={formatLabel(payment?.paymentMethod || "CASH")}
+              />
+              <Row
+                label="Transaction Reference"
+                value={payment?.transactionReference}
+              />
+              {payment?.paymentNumber ? (
+                <Row label="Payment No." value={payment.paymentNumber} />
+              ) : null}
+              {payment?.paymentStatus ? (
+                <Row
+                  label="Payment Status"
+                  value={formatLabel(payment.paymentStatus)}
+                />
+              ) : null}
+              {payment?.documentNumber ? (
+                <Row label="Document No." value={payment.documentNumber} />
+              ) : null}
+              {paymentReceipt.adjustmentStatus ? (
+                <Row
+                  label="Adjustment"
+                  value={formatLabel(paymentReceipt.adjustmentStatus)}
+                />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Amount */}
+      <div className="border-b border-gray-900">
+        <div className="flex flex-col gap-1.5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-800">
+              Amount Received (Rs.)
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              {numberToWords(amount)} Only
+            </p>
+          </div>
+          <p className="flex items-center gap-1 text-lg font-semibold text-gray-900 sm:text-xl">
+            <IndianRupee className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2.5} />
+            {formattedAmount}
+          </p>
+        </div>
+      </div>
+
+      {notes ? (
+        <div>
+          <div className="border-b border-gray-200 px-3 py-1.5 sm:px-5 sm:py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-800">
+              Additional Info
+            </p>
+          </div>
+          <div className="px-3 py-2.5 text-sm sm:px-5 sm:py-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+              Notes
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-gray-800">{notes}</p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -177,9 +178,11 @@ export default function ReceiptPreview({
 function Row({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <tr>
-      <td className="w-[140px] py-1.5 pr-4 align-top text-gray-500">{label}</td>
-      <td className="py-1.5 font-medium text-gray-900">{value}</td>
+    <tr className="align-top">
+      <td className="w-[100px] py-1 pr-2 text-gray-500 sm:w-[130px] sm:pr-3">
+        {label}
+      </td>
+      <td className="py-1 font-medium text-gray-900">{value}</td>
     </tr>
   );
 }

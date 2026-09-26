@@ -5,9 +5,15 @@ import {
   type ChangeEvent,
   type ClipboardEvent,
 } from "react";
-import { useForm, useWatch, Controller } from "react-hook-form";
+import {
+  useForm,
+  useWatch,
+  Controller,
+  type Resolver,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,8 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { FormPageHeader } from "@/modules/sales/shared/components/ui/form-page-header";
-import { SalesSectionCard } from "@/modules/sales/shared/components/ui/sales-table";
 import CustomerSearchSelect, {
   type SelectedCustomer,
 } from "@/modules/sales/shared/components/customer-search-select";
@@ -89,7 +93,9 @@ export default function PaymentReceiptForm({
     useUpdatePaymentReceiptMutation();
 
   const form = useForm<PaymentReceiptFormValues>({
-    resolver: zodResolver(paymentReceiptFormSchema),
+    resolver: zodResolver(
+      paymentReceiptFormSchema,
+    ) as Resolver<PaymentReceiptFormValues>,
     mode: "onChange",
     defaultValues: {
       ...PAYMENT_RECEIPT_FORM_DEFAULTS,
@@ -111,7 +117,6 @@ export default function PaymentReceiptForm({
   const paymentMethod =
     useWatch({ control, name: "paymentMethod" }) || "CASH";
   const receiptDate = useWatch({ control, name: "receiptDate" });
-  const customerName = useWatch({ control, name: "customerName" });
   const isCash = paymentMethod === "CASH";
   const busy = creating || updating || isSubmitting;
 
@@ -151,7 +156,6 @@ export default function PaymentReceiptForm({
     }
   }, [receiptDate, setValue]);
 
-  /** Fill from shared search — fields stay editable after select */
   const fillFromCustomer = (c: SelectedCustomer | null) => {
     if (!c) {
       setValue("customerId", "", { shouldDirty: true, shouldValidate: true });
@@ -180,7 +184,6 @@ export default function PaymentReceiptForm({
     );
   };
 
-  /** Reset only user fields; date/FY back to today */
   const handleReset = () => {
     const today = new Date().toISOString().slice(0, 10);
     reset({
@@ -268,190 +271,209 @@ export default function PaymentReceiptForm({
     (errors[key]?.message as string | undefined) || undefined;
 
   return (
-    <div className="mx-auto w-full space-y-6 pb-10">
-      <FormPageHeader
-        title={mode === "edit" ? "Edit payment receipt" : "New payment receipt"}
-        description="Record cash / online payment received from a customer"
-        onBack={
-          onCancel || (() => router.push("/sales/payment-receipts"))
-        }
-      />
+    <div className="w-full bg-white">
+      {/* Header — same tight style as view */}
+      <div className="flex h-12 w-full items-center gap-2 border-b border-gray-200 px-3 sm:h-14 sm:px-4">
+        <button
+          type="button"
+          onClick={
+            onCancel || (() => router.push("/sales/payment-receipts"))
+          }
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+          title="Back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="min-w-0">
+          <p className="hidden text-[11px] text-gray-500 sm:block">
+            Sales / Payment Receipt
+          </p>
+          <h1 className="truncate text-sm font-semibold text-gray-900">
+            {mode === "edit" ? "Edit payment receipt" : "New payment receipt"}
+          </h1>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        {/* Single card for entire form */}
-        <SalesSectionCard title="Payment receipt">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Date + FY */}
-            <div className="space-y-1.5">
-              <Label htmlFor="receiptDate">
-                Receipt date <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="receiptDate"
-                type="date"
-                {...register("receiptDate")}
-                disabled={busy}
-              />
-              {err("receiptDate") ? (
-                <p className="text-xs text-red-500">{err("receiptDate")}</p>
-              ) : null}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="financialYear">Financial year</Label>
-              <Input
-                id="financialYear"
-                readOnly
-                className="bg-muted/40"
-                {...register("financialYear")}
-              />
-            </div>
-
-            {/* Customer search */}
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>
-                Customer <span className="text-red-500">*</span>
-              </Label>
-              <CustomerSearchSelect onSelect={fillFromCustomer} hideLabel />
-              {err("customerId") || err("customerName") ? (
-                <p className="text-xs text-red-500">
-                  {err("customerId") || err("customerName")}
-                </p>
-              ) : null}
-            </div>
-
-            {/* Amount + method */}
-            <div className="space-y-1.5">
-              <Label htmlFor="amount">
-                Amount <span className="text-red-500">*</span>
-              </Label>
-              <Controller
-                control={control}
-                name="amount"
-                render={({ field }) => (
-                  <Input
-                    id="amount"
-                    type="text"
-                    inputMode="decimal"
-                    disabled={busy}
-                    value={
-                      field.value === 0 || field.value === undefined
-                        ? "0"
-                        : String(field.value)
-                    }
-                    onChange={(e) => {
-                      let raw = e.target.value.replace(/[^0-9.]/g, "");
-                      // only one decimal point
-                      const parts = raw.split(".");
-                      if (parts.length > 2) {
-                        raw = parts[0] + "." + parts.slice(1).join("");
-                      }
-                      // strip leading zeros (keep "0." for decimals)
-                      if (raw && !raw.startsWith("0.")) {
-                        raw = raw.replace(/^0+(?=\d)/, "");
-                      }
-                      if (raw === "" || raw === ".") {
-                        field.onChange(0);
-                        return;
-                      }
-                      const n = Number(raw);
-                      field.onChange(Number.isFinite(n) ? n : 0);
-                    }}
-                    onBlur={field.onBlur}
-                    placeholder="0"
-                  />
-                )}
-              />
-              {err("amount") ? (
-                <p className="text-xs text-red-500">{err("amount")}</p>
-              ) : null}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Payment method</Label>
-              <Controller
-                control={control}
-                name="paymentMethod"
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={busy}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {METHODS.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            {!isCash ? (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="transactionReference">
-                  Transaction reference{" "}
-                  <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="transactionReference"
-                  {...register("transactionReference")}
-                  onChange={(e) =>
-                    onSafeChange(e, LIMITS.REF, (v) =>
-                      setValue("transactionReference", v, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      }),
-                    )
-                  }
-                  disabled={busy}
-                  placeholder="UPI ref / UTR / card auth…"
-                />
-                {err("transactionReference") ? (
-                  <p className="text-xs text-red-500">
-                    {err("transactionReference")}
-                  </p>
-                ) : null}
-              </div>
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        className="w-full border-b border-gray-200"
+      >
+        <div className="grid gap-4 px-3 py-4 sm:grid-cols-2 sm:px-5 sm:py-5">
+          {/* Date + FY */}
+          <div className="space-y-1.5">
+            <Label htmlFor="receiptDate">
+              Receipt date <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="receiptDate"
+              type="date"
+              className="rounded-md"
+              {...register("receiptDate")}
+              disabled={busy}
+            />
+            {err("receiptDate") ? (
+              <p className="text-xs text-red-500">{err("receiptDate")}</p>
             ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="financialYear">Financial year</Label>
+            <Input
+              id="financialYear"
+              readOnly
+              className="rounded-md bg-muted/40"
+              {...register("financialYear")}
+            />
+          </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <InvoiceSearchSelect
-                value={useWatch({ control, name: "invoiceId" }) || ""}
-                onSelect={(inv) =>
-                  setValue("invoiceId", inv?.id || "", { shouldDirty: true })
-                }
-              />
-            </div>
+          {/* Customer search only — name shows inside select */}
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>
+              Customer <span className="text-red-500">*</span>
+            </Label>
+            <CustomerSearchSelect onSelect={fillFromCustomer} hideLabel />
+            {err("customerId") || err("customerName") ? (
+              <p className="text-xs text-red-500">
+                {err("customerId") || err("customerName")}
+              </p>
+            ) : null}
+          </div>
 
+          {/* Amount */}
+          <div className="space-y-1.5">
+            <Label htmlFor="amount">
+              Amount <span className="text-red-500">*</span>
+            </Label>
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field }) => (
+                <Input
+                  id="amount"
+                  type="text"
+                  inputMode="decimal"
+                  className="rounded-md"
+                  disabled={busy}
+                  value={
+                    field.value === 0 || field.value === undefined
+                      ? "0"
+                      : String(field.value)
+                  }
+                  onChange={(e) => {
+                    let raw = e.target.value.replace(/[^0-9.]/g, "");
+                    const parts = raw.split(".");
+                    if (parts.length > 2) {
+                      raw = parts[0] + "." + parts.slice(1).join("");
+                    }
+                    if (raw && !raw.startsWith("0.")) {
+                      raw = raw.replace(/^0+(?=\d)/, "");
+                    }
+                    if (raw === "" || raw === ".") {
+                      field.onChange(0);
+                      return;
+                    }
+                    const n = Number(raw);
+                    field.onChange(Number.isFinite(n) ? n : 0);
+                  }}
+                  onBlur={field.onBlur}
+                  placeholder="0"
+                />
+              )}
+            />
+            {err("amount") ? (
+              <p className="text-xs text-red-500">{err("amount")}</p>
+            ) : null}
+          </div>
+
+          {/* Method */}
+          <div className="space-y-1.5">
+            <Label>Payment method</Label>
+            <Controller
+              control={control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={busy}
+                >
+                  <SelectTrigger className="rounded-md">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          {!isCash ? (
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                {...register("notes")}
+              <Label htmlFor="transactionReference">
+                Transaction reference <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="transactionReference"
+                className="rounded-md"
+                {...register("transactionReference")}
                 onChange={(e) =>
-                  onSafeChange(e, LIMITS.NOTES, (v) =>
-                    setValue("notes", v, { shouldDirty: true }),
+                  onSafeChange(e, LIMITS.REF, (v) =>
+                    setValue("transactionReference", v, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    }),
                   )
                 }
                 disabled={busy}
-                className="resize-none"
+                placeholder="UPI ref / UTR / card auth…"
               />
+              {err("transactionReference") ? (
+                <p className="text-xs text-red-500">
+                  {err("transactionReference")}
+                </p>
+              ) : null}
             </div>
-          </div>
-        </SalesSectionCard>
+          ) : null}
 
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <InvoiceSearchSelect
+              value={useWatch({ control, name: "invoiceId" }) || ""}
+              onSelect={(inv) =>
+                setValue("invoiceId", inv?.id || "", { shouldDirty: true })
+              }
+            />
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              rows={3}
+              className="resize-none rounded-md"
+              {...register("notes")}
+              onChange={(e) =>
+                onSafeChange(e, LIMITS.NOTES, (v) =>
+                  setValue("notes", v, { shouldDirty: true }),
+                )
+              }
+              disabled={busy}
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-3 py-3 sm:px-5">
           <Button
             type="button"
             variant="ghost"
             disabled={busy}
             onClick={handleReset}
+            className="rounded-md"
           >
             Reset
           </Button>
@@ -462,10 +484,15 @@ export default function PaymentReceiptForm({
             onClick={
               onCancel || (() => router.push("/sales/payment-receipts"))
             }
+            className="rounded-md"
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={busy}>
+          <Button
+            type="submit"
+            disabled={busy}
+            className="rounded-md bg-primary text-white hover:bg-primary"
+          >
             {busy ? "Saving…" : mode === "edit" ? "Update" : "Save"}
           </Button>
         </div>
