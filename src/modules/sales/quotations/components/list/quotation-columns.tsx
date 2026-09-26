@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { Badge } from "@/components/ui";
+import { StatusBadge } from "@/modules/sales/shared/components/ui/status-badge";
 
 import type { Quotation } from "../../types/quotation.types";
 
@@ -165,23 +165,7 @@ export const QuotationColumns: ColumnDef<Quotation>[] =
               .quotationStatus ?? ""
           ).toUpperCase();
 
-        const variant =
-          status === "ACCEPTED"
-            ? "success"
-            : status === "DRAFT"
-              ? "secondary"
-              : status ===
-                  "REJECTED" ||
-                status ===
-                  "CANCELLED"
-                ? "destructive"
-                : "outline";
-
-        return (
-          <Badge variant={variant}>
-            {status || "-"}
-          </Badge>
-        );
+        return <StatusBadge status={status || "DRAFT"} />;
       },
     },
 

@@ -240,42 +240,52 @@ export function QuotationForm({
 
   const submitWithStatus = async (status: "DRAFT" | "FINALIZED") => {
     const values = form.getValues();
-    const valid = await form.trigger();
-    if (!valid) {
-      let msg = firstErrorMessage(form.formState.errors as Record<string, unknown>);
-      // Fallback: parse values so toast always names the missing field
-      if (msg === "Please fix the highlighted fields") {
-        try {
-          quotationCreateSchema.parse(form.getValues());
-        } catch (e: unknown) {
-          const ze = e as { issues?: Array<{ message?: string; path?: unknown[] }>; errors?: Array<{ message?: string; path?: unknown[] }> };
-          const issue = ze?.issues?.[0] || ze?.errors?.[0];
-          if (issue?.message) {
-            const path = Array.isArray(issue.path) ? issue.path[0] : "";
-            const labels: Record<string, string> = {
-              prospectName: "Customer name",
-              prospectPhone: "Customer phone",
-              prospectAddressLine1: "Customer address",
-              prospectCity: "Customer city",
-              prospectPincode: "Customer pincode",
-              prospectState: "Customer state",
-              placeOfSupply: "Place of supply",
-              quotationDate: "Quotation date",
-              validUntil: "Valid until",
-              termsAndConditions: "Terms & conditions",
-              items: "Product items",
+
+    // Finalize only: full schema + terms + signature
+    if (status === "FINALIZED") {
+      const valid = await form.trigger();
+      if (!valid) {
+        let msg = firstErrorMessage(
+          form.formState.errors as Record<string, unknown>,
+        );
+        if (msg === "Please fix the highlighted fields") {
+          try {
+            quotationCreateSchema.parse(form.getValues());
+          } catch (e: unknown) {
+            const ze = e as {
+              issues?: Array<{ message?: string; path?: unknown[] }>;
+              errors?: Array<{ message?: string; path?: unknown[] }>;
             };
-            const label = (path && labels[String(path)]) || String(path || "Field");
-            msg = `${label}: ${issue.message}`;
+            const issue = ze?.issues?.[0] || ze?.errors?.[0];
+            if (issue?.message) {
+              const path = Array.isArray(issue.path) ? issue.path[0] : "";
+              const labels: Record<string, string> = {
+                prospectName: "Customer name",
+                prospectPhone: "Customer phone",
+                prospectAddressLine1: "Customer address",
+                prospectCity: "Customer city",
+                prospectPincode: "Customer pincode",
+                prospectState: "Customer state",
+                placeOfSupply: "Place of supply",
+                quotationDate: "Quotation date",
+                validUntil: "Valid until",
+                termsAndConditions: "Terms & conditions",
+                items: "Product items",
+                businessName: "Business name",
+              };
+              const label =
+                (path && labels[String(path)]) || String(path || "Field");
+              msg = `${label}: ${issue.message}`;
+            }
           }
         }
+        notify.error(msg);
+        return;
       }
-      notify.error(msg);
-      return;
-    }
 
-    if (status === "FINALIZED") {
-      const terms = (values.termsAndConditions || "").replace(/<[^>]+>/g, "").trim();
+      const terms = (values.termsAndConditions || "")
+        .replace(/<[^>]+>/g, "")
+        .trim();
       const sig = values.signature;
       if (!terms) {
         notify.error("Terms & conditions are required to finalize");
@@ -286,6 +296,7 @@ export function QuotationForm({
         return;
       }
     }
+    // Draft: no full schema trigger — partial save allowed
 
     const withStatus = { ...values, status };
 

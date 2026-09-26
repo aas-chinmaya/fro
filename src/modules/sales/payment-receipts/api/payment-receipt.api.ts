@@ -18,7 +18,6 @@ export const paymentReceiptApi = baseApi.injectEndpoints({
       PaymentReceiptQueryParams | undefined
     >({
       query: (params) => ({
-        // url: PAYMENT_RECEIPT_ENDPOINT,
         url: `${PAYMENT_RECEIPT_ENDPOINT}/list`,
         method: "GET",
         params,
@@ -50,8 +49,8 @@ export const paymentReceiptApi = baseApi.injectEndpoints({
       CreatePaymentReceiptPayload
     >({
       query: (data) => ({
-        url: PAYMENT_RECEIPT_ENDPOINT,
-        method: "POST",
+  url: `${PAYMENT_RECEIPT_ENDPOINT}/create`,
+          method: "POST",
         data,
       }),
       invalidatesTags: [{ type: "PaymentReceipts", id: "LIST" }],

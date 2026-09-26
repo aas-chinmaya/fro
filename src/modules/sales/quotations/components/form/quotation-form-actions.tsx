@@ -66,27 +66,22 @@ export function QuotationFormActions({
 
   const hasDates = !!(quotationDate && validUntil);
 
-  const canSaveDraft =
-    !readOnly && customerOk && hasDates && hasItems && hasTerms && !isSubmitting;
-  const canFinalize =
-    canSaveDraft && !!(signature && String(signature).trim());
+  /** Draft: always allowed when not locked / not submitting */
+  const canSaveDraft = !readOnly && !isSubmitting;
 
-  const hint = !customerOk
-    ? "Complete required customer fields."
-    : !hasDates
-      ? "Date and valid until are required."
-      : !hasItems
-        ? "Add at least one item."
-        : !hasTerms
-          ? "Terms & conditions are required."
-          : !canFinalize
-            ? "Authorized signatory required to finalize."
-            : null;
+  /** Finalize: full required fields + signature */
+  const canFinalize =
+    !readOnly &&
+    !isSubmitting &&
+    customerOk &&
+    hasDates &&
+    hasItems &&
+    hasTerms &&
+    !!(signature && String(signature).trim());
 
   return (
-    <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6 rounded-md">
+    <div className="sticky bottom-0 z-10 rounded-md border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left: Back */}
         <div className="flex items-center gap-2">
           {onCancel ? (
             <Button
@@ -113,7 +108,6 @@ export function QuotationFormActions({
           ) : null}
         </div>
 
-        {/* Right: primary actions */}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
           {!readOnly ? (
             <>
@@ -127,8 +121,8 @@ export function QuotationFormActions({
                 {isSubmitting
                   ? "Saving…"
                   : mode === "create"
-                    ? "Save as draft"
-                    : "Update draft"}
+                    ? "Save"
+                    : "Update"}
               </Button>
               <Button
                 type="button"
@@ -136,7 +130,7 @@ export function QuotationFormActions({
                 onClick={() => onSubmitIntent("FINALIZED")}
                 className="w-full sm:w-auto"
               >
-                {isSubmitting ? "Submitting…" : "Finalize quotation"}
+                {isSubmitting ? "Submitting…" : "Finalize"}
               </Button>
             </>
           ) : (
@@ -146,7 +140,6 @@ export function QuotationFormActions({
           )}
         </div>
       </div>
-   
     </div>
   );
 }
