@@ -1,7 +1,6 @@
 import { baseApi } from "@/services/baseApi";
 
 import type {
-  PaymentReceipt,
   PaymentReceiptListResponse,
   PaymentReceiptQueryParams,
   PaymentReceiptResponse,
@@ -42,6 +41,8 @@ export const paymentReceiptApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [
         { type: "PaymentReceipts" as const, id },
       ],
+      // RTK Query returns the full response body; unwrap data in the view
+      transformResponse: (response: PaymentReceiptResponse) => response,
     }),
 
     createPaymentReceipt: builder.mutation<
@@ -49,8 +50,8 @@ export const paymentReceiptApi = baseApi.injectEndpoints({
       CreatePaymentReceiptPayload
     >({
       query: (data) => ({
-  url: `${PAYMENT_RECEIPT_ENDPOINT}/create`,
-          method: "POST",
+        url: `${PAYMENT_RECEIPT_ENDPOINT}/create`,
+        method: "POST",
         data,
       }),
       invalidatesTags: [{ type: "PaymentReceipts", id: "LIST" }],

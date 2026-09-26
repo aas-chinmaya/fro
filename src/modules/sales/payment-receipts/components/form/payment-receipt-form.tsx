@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, type ClipboardEvent, type ChangeEvent } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import {
+  useEffect,
+  type ChangeEvent,
+  type ClipboardEvent,
+} from "react";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { notify } from "@/lib/toast";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +26,7 @@ import { SalesSectionCard } from "@/modules/sales/shared/components/ui/sales-tab
 import CustomerSearchSelect, {
   type SelectedCustomer,
 } from "@/modules/sales/shared/components/customer-search-select";
+import { notify } from "@/lib/toast";
 
 import {
   useCreatePaymentReceiptMutation,
@@ -33,10 +36,13 @@ import {
   LIMITS,
   paymentReceiptFormSchema,
   sanitizeFieldInput,
+  toIsoReceiptDate,
+  computeFinancialYear,
 } from "../../schemas/payment-receipt.schema";
 import type {
   PaymentReceipt,
   PaymentReceiptFormValues,
+  CreatePaymentReceiptPayload,
 } from "../../types/payment-receipt.types";
 import { PAYMENT_RECEIPT_FORM_DEFAULTS } from "../../types/payment-receipt.types";
 import { InvoiceSearchSelect } from "./invoice-search-select";
@@ -47,18 +53,6 @@ const METHODS = [
   { value: "CARD", label: "Card" },
   { value: "NET_BANKING", label: "Net banking" },
 ] as const;
-
-function computeFinancialYear(dateStr: string) {
-  try {
-    const d = new Date(dateStr);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-    if (month >= 4) return `${year}-${String(year + 1).slice(-2)}`;
-    return `${year - 1}-${String(year).slice(-2)}`;
-  } catch {
-    return String(new Date().getFullYear());
-  }
-}
 
 function onSafePaste(
   e: ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -97,7 +91,12 @@ export default function PaymentReceiptForm({
   const form = useForm<PaymentReceiptFormValues>({
     resolver: zodResolver(paymentReceiptFormSchema),
     mode: "onChange",
-    defaultValues: PAYMENT_RECEIPT_FORM_DEFAULTS,
+    defaultValues: {
+      ...PAYMENT_RECEIPT_FORM_DEFAULTS,
+      financialYear: computeFinancialYear(
+        PAYMENT_RECEIPT_FORM_DEFAULTS.receiptDate,
+      ),
+    },
   });
 
   const {
@@ -113,23 +112,30 @@ export default function PaymentReceiptForm({
     useWatch({ control, name: "paymentMethod" }) || "CASH";
   const receiptDate = useWatch({ control, name: "receiptDate" });
   const customerName = useWatch({ control, name: "customerName" });
-  const amount = useWatch({ control, name: "amount" });
-  const invoiceId = useWatch({ control, name: "invoiceId" });
   const isCash = paymentMethod === "CASH";
+  const busy = creating || updating || isSubmitting;
 
   useEffect(() => {
     if (mode === "edit" && receipt) {
+      const dateOnly = receipt.receiptDate
+        ? receipt.receiptDate.slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
       reset({
-        receiptDate: receipt.receiptDate?.slice(0, 10) || "",
-        financialYear: receipt.financialYear || "",
-        customerName: receipt.customerName || "",
-        customerPhone: receipt.customerPhone || "",
-        customerGSTIN: receipt.customerGSTIN || "",
-        invoiceId: receipt.invoiceId || "",
+        receiptDate: dateOnly,
+        financialYear:
+          receipt.financialYear || computeFinancialYear(dateOnly),
+        customerId: receipt.customerId || receipt.customer?.id || "",
+        customerName: receipt.customerName || receipt.customer?.name || "",
+        customerPhone:
+          receipt.customerPhone || receipt.customer?.mobile || "",
+        customerGSTIN:
+          receipt.customerGSTIN || receipt.customer?.gstin || "",
+        invoiceId: "",
         paymentMethod:
-          (receipt.paymentMethod as PaymentReceiptFormValues["paymentMethod"]) ||
+          (receipt.payment
+            ?.paymentMethod as PaymentReceiptFormValues["paymentMethod"]) ||
           "CASH",
-        transactionReference: receipt.transactionReference || "",
+        transactionReference: receipt.payment?.transactionReference || "",
         amount: Number(receipt.amount) || 0,
         notes: receipt.notes || "",
       });
@@ -139,18 +145,25 @@ export default function PaymentReceiptForm({
   useEffect(() => {
     if (receiptDate) {
       setValue("financialYear", computeFinancialYear(receiptDate), {
-        shouldDirty: true,
+        shouldDirty: false,
+        shouldValidate: false,
       });
     }
   }, [receiptDate, setValue]);
 
+  /** Fill from shared search — fields stay editable after select */
   const fillFromCustomer = (c: SelectedCustomer | null) => {
     if (!c) {
+      setValue("customerId", "", { shouldDirty: true, shouldValidate: true });
       setValue("customerName", "", { shouldDirty: true, shouldValidate: true });
       setValue("customerPhone", "", { shouldDirty: true });
       setValue("customerGSTIN", "", { shouldDirty: true });
       return;
     }
+    setValue("customerId", String(c.id || ""), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setValue("customerName", sanitizeFieldInput(c.name || "", LIMITS.NAME), {
       shouldDirty: true,
       shouldValidate: true,
@@ -167,260 +180,294 @@ export default function PaymentReceiptForm({
     );
   };
 
-  const onSubmit = async (values: PaymentReceiptFormValues) => {
-    const payload = {
-      receiptDate: values.receiptDate,
+  /** Reset only user fields; date/FY back to today */
+  const handleReset = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    reset({
+      receiptDate: today,
+      financialYear: computeFinancialYear(today),
+      customerId: "",
+      customerName: "",
+      customerPhone: "",
+      customerGSTIN: "",
+      invoiceId: "",
+      paymentMethod: "CASH",
+      transactionReference: "",
+      amount: 0,
+      notes: "",
+    });
+  };
+
+  const buildPayload = (
+    values: PaymentReceiptFormValues,
+  ): CreatePaymentReceiptPayload => {
+    const payload: CreatePaymentReceiptPayload = {
+      receiptDate: toIsoReceiptDate(values.receiptDate),
       financialYear:
         values.financialYear?.trim() ||
         computeFinancialYear(values.receiptDate),
+      customerId: values.customerId.trim(),
       customerName: values.customerName.trim(),
-      customerPhone: values.customerPhone?.trim() || undefined,
-      customerGSTIN: values.customerGSTIN?.trim() || undefined,
-      invoiceId: values.invoiceId?.trim() || undefined,
-      paymentMethod: values.paymentMethod,
-      transactionReference: values.transactionReference?.trim() || undefined,
       amount: Number(values.amount) || 0,
-      notes: values.notes?.trim() || undefined,
+      paymentMethod: values.paymentMethod,
     };
+    if (values.customerPhone?.trim())
+      payload.customerPhone = values.customerPhone.trim();
+    if (values.customerGSTIN?.trim())
+      payload.customerGSTIN = values.customerGSTIN.trim();
+    if (values.invoiceId?.trim()) payload.invoiceId = values.invoiceId.trim();
+    if (
+      values.paymentMethod !== "CASH" &&
+      values.transactionReference?.trim()
+    ) {
+      payload.transactionReference = values.transactionReference.trim();
+    }
+    if (values.notes?.trim()) payload.notes = values.notes.trim();
+    return payload;
+  };
 
+  const onSubmit = async (values: PaymentReceiptFormValues) => {
+    if (!values.customerId?.trim()) {
+      notify.error("Please select a customer");
+      return;
+    }
+    const payload = buildPayload(values);
     try {
       if (mode === "edit" && receipt?.id) {
         const res = await updateReceipt({
           id: receipt.id,
           data: payload,
         }).unwrap();
-        notify.success(
-          (res as { message?: string })?.message || "Receipt updated",
-        );
+        notify.success(res.message || "Payment receipt updated");
         router.push(`/sales/payment-receipts/${receipt.id}`);
       } else {
         const res = await createReceipt(payload).unwrap();
-        notify.success(
-          (res as { message?: string })?.message || "Receipt created",
+        notify.success(res.message || "Payment receipt created");
+        const newId = res.data?.id;
+        router.push(
+          newId
+            ? `/sales/payment-receipts/${newId}`
+            : "/sales/payment-receipts",
         );
-        const id = (res as { data?: { id?: string } })?.data?.id;
-        if (id) router.push(`/sales/payment-receipts/${id}`);
-        else router.push("/sales/payment-receipts");
       }
     } catch (err: unknown) {
-      const e = err as { data?: { message?: string }; message?: string };
-      notify.error(e?.data?.message || e?.message || "Failed to save receipt");
+      const e = err as {
+        data?: { message?: string } | string;
+        message?: string;
+      };
+      const msg =
+        (typeof e?.data === "object" && e?.data?.message) ||
+        (typeof e?.data === "string" ? e.data : null) ||
+        e?.message ||
+        "Something went wrong";
+      notify.error(String(msg));
     }
   };
 
-  const err = (k: keyof PaymentReceiptFormValues) =>
-    (errors[k]?.message as string | undefined) || undefined;
-
-  const saving = isSubmitting || creating || updating;
-  const canSave =
-    !!(customerName || "").trim() &&
-    Number(amount) > 0 &&
-    !!(receiptDate || "").trim() &&
-    !saving;
-
-  const refReg = register("transactionReference");
-  const notesReg = register("notes");
+  const err = (key: keyof PaymentReceiptFormValues) =>
+    (errors[key]?.message as string | undefined) || undefined;
 
   return (
-    <div className="flex w-full min-w-0 flex-col space-y-6 pb-10">
+    <div className="mx-auto w-full space-y-6 pb-10">
       <FormPageHeader
-        title={
-          mode === "edit" ? "Edit payment receipt" : "Create payment receipt"
+        title={mode === "edit" ? "Edit payment receipt" : "New payment receipt"}
+        description="Record cash / online payment received from a customer"
+        onBack={
+          onCancel || (() => router.push("/sales/payment-receipts"))
         }
-        description="Record a customer payment"
-        backHref="/sales/payment-receipts"
       />
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="flex w-full min-w-0 flex-col space-y-6"
-        noValidate
-      >
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        {/* Single card for entire form */}
         <SalesSectionCard title="Payment receipt">
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Customer search only — name / phone / GSTIN stored, not shown */}
-            <div className="space-y-1 sm:col-span-2">
-        
-              <CustomerSearchSelect onSelect={fillFromCustomer} />
-              {customerName ? (
-                <p className="text-xs text-slate-500">
-                  Selected:{" "}
-                  <span className="font-medium text-slate-800">
-                    {customerName}
-                  </span>
-                </p>
-              ) : null}
-              {err("customerName") ? (
-                <p className="text-[11px] text-red-600">{err("customerName")}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">
+            {/* Date + FY */}
+            <div className="space-y-1.5">
+              <Label htmlFor="receiptDate">
                 Receipt date <span className="text-red-500">*</span>
               </Label>
-              <Input type="date" className="h-9" {...register("receiptDate")} />
+              <Input
+                id="receiptDate"
+                type="date"
+                {...register("receiptDate")}
+                disabled={busy}
+              />
               {err("receiptDate") ? (
-                <p className="text-[11px] text-red-600">{err("receiptDate")}</p>
+                <p className="text-xs text-red-500">{err("receiptDate")}</p>
               ) : null}
             </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">Financial year</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="financialYear">Financial year</Label>
               <Input
-                className="h-9 bg-slate-50"
+                id="financialYear"
                 readOnly
+                className="bg-muted/40"
                 {...register("financialYear")}
               />
             </div>
 
-            <div className="sm:col-span-2">
+            {/* Customer search */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>
+                Customer <span className="text-red-500">*</span>
+              </Label>
+              <CustomerSearchSelect onSelect={fillFromCustomer} hideLabel />
+              {err("customerId") || err("customerName") ? (
+                <p className="text-xs text-red-500">
+                  {err("customerId") || err("customerName")}
+                </p>
+              ) : null}
+            </div>
+
+            {/* Amount + method */}
+            <div className="space-y-1.5">
+              <Label htmlFor="amount">
+                Amount <span className="text-red-500">*</span>
+              </Label>
+              <Controller
+                control={control}
+                name="amount"
+                render={({ field }) => (
+                  <Input
+                    id="amount"
+                    type="text"
+                    inputMode="decimal"
+                    disabled={busy}
+                    value={
+                      field.value === 0 || field.value === undefined
+                        ? "0"
+                        : String(field.value)
+                    }
+                    onChange={(e) => {
+                      let raw = e.target.value.replace(/[^0-9.]/g, "");
+                      // only one decimal point
+                      const parts = raw.split(".");
+                      if (parts.length > 2) {
+                        raw = parts[0] + "." + parts.slice(1).join("");
+                      }
+                      // strip leading zeros (keep "0." for decimals)
+                      if (raw && !raw.startsWith("0.")) {
+                        raw = raw.replace(/^0+(?=\d)/, "");
+                      }
+                      if (raw === "" || raw === ".") {
+                        field.onChange(0);
+                        return;
+                      }
+                      const n = Number(raw);
+                      field.onChange(Number.isFinite(n) ? n : 0);
+                    }}
+                    onBlur={field.onBlur}
+                    placeholder="0"
+                  />
+                )}
+              />
+              {err("amount") ? (
+                <p className="text-xs text-red-500">{err("amount")}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Payment method</Label>
+              <Controller
+                control={control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={busy}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {METHODS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            {!isCash ? (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="transactionReference">
+                  Transaction reference{" "}
+                  <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="transactionReference"
+                  {...register("transactionReference")}
+                  onChange={(e) =>
+                    onSafeChange(e, LIMITS.REF, (v) =>
+                      setValue("transactionReference", v, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      }),
+                    )
+                  }
+                  disabled={busy}
+                  placeholder="UPI ref / UTR / card auth…"
+                />
+                {err("transactionReference") ? (
+                  <p className="text-xs text-red-500">
+                    {err("transactionReference")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="space-y-1.5 sm:col-span-2">
               <InvoiceSearchSelect
-                value={invoiceId || null}
+                value={useWatch({ control, name: "invoiceId" }) || ""}
                 onSelect={(inv) =>
                   setValue("invoiceId", inv?.id || "", { shouldDirty: true })
                 }
               />
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">
-                Payment method <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={paymentMethod}
-                onValueChange={(v) => {
-                  setValue(
-                    "paymentMethod",
-                    v as PaymentReceiptFormValues["paymentMethod"],
-                    { shouldDirty: true, shouldValidate: true },
-                  );
-                  if (v === "CASH") {
-                    setValue("transactionReference", "", {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {METHODS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">
-                Amount (₹) <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                className="h-9"
-                {...register("amount", { valueAsNumber: true })}
-              />
-              {err("amount") ? (
-                <p className="text-[11px] text-red-600">{err("amount")}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs text-slate-600">
-                Transaction / reference ID
-                {!isCash ? (
-                  <span className="text-red-500"> *</span>
-                ) : (
-                  <span className="text-slate-400"> (optional for Cash)</span>
-                )}
-              </Label>
-              <Input
-                className={`h-9 ${err("transactionReference") ? "border-red-500" : ""}`}
-                maxLength={LIMITS.REF}
-                {...refReg}
-                onChange={(e) =>
-                  onSafeChange(e, LIMITS.REF, (v) =>
-                    setValue("transactionReference", v, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    }),
-                  )
-                }
-                onPaste={(e) =>
-                  onSafePaste(e, LIMITS.REF, (v) =>
-                    setValue("transactionReference", v, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    }),
-                  )
-                }
-              />
-              {err("transactionReference") ? (
-                <p className="text-[11px] text-red-600">
-                  {err("transactionReference")}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs text-slate-600">Notes</Label>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
-                className="min-h-[80px] resize-y text-sm"
-                maxLength={LIMITS.NOTES}
-                placeholder="Optional notes…"
-                {...notesReg}
+                id="notes"
+                rows={3}
+                {...register("notes")}
                 onChange={(e) =>
                   onSafeChange(e, LIMITS.NOTES, (v) =>
                     setValue("notes", v, { shouldDirty: true }),
                   )
                 }
-                onPaste={(e) =>
-                  onSafePaste(e, LIMITS.NOTES, (v) =>
-                    setValue("notes", v, { shouldDirty: true }),
-                  )
-                }
+                disabled={busy}
+                className="resize-none"
               />
             </div>
           </div>
         </SalesSectionCard>
 
-        <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <Button
             type="button"
             variant="ghost"
-            className="gap-1.5 self-start"
-            onClick={() =>
-              onCancel ? onCancel() : router.push("/sales/payment-receipts")
-            }
-            disabled={saving}
+            disabled={busy}
+            onClick={handleReset}
           >
-            <ArrowLeft className="h-4 w-4" />
+            Reset
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={
+              onCancel || (() => router.push("/sales/payment-receipts"))
+            }
+          >
             Cancel
           </Button>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={() => reset(PAYMENT_RECEIPT_FORM_DEFAULTS)}
-            >
-              Reset
-            </Button>
-            <Button type="submit" disabled={!canSave}>
-              {saving
-                ? "Saving…"
-                : mode === "edit"
-                  ? "Update receipt"
-                  : "Save receipt"}
-            </Button>
-          </div>
+          <Button type="submit" disabled={busy}>
+            {busy ? "Saving…" : mode === "edit" ? "Update" : "Save"}
+          </Button>
         </div>
       </form>
     </div>

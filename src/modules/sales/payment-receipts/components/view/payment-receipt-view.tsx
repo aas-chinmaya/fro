@@ -1,61 +1,70 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Scale } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { notify } from "@/lib/toast";
 import { useGetPaymentReceiptByIdQuery } from "../../api/payment-receipt.api";
+import type { PaymentReceipt } from "../../types/payment-receipt.types";
+import ReceiptPreview from "./receipt-preview";
+import PaymentAdjustmentDialog from "./payment-adjustment-dialog";
 
 interface Props {
   id: string;
 }
 
-function formatDate(v?: string | null) {
-  if (!v) return "—";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatINR(n: number) {
-  return `₹${Number(n || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export default function PaymentReceiptView({ id }: Props) {
   const router = useRouter();
-  const { data: response, isLoading, error } = useGetPaymentReceiptByIdQuery(id, {
-    skip: !id,
-  });
+  const [adjustmentOpen, setAdjustmentOpen] = useState(false);
+  const stableReceipt = useRef<PaymentReceipt | null>(null);
 
-  const receipt =
-    response && typeof response === "object" && "data" in response
-      ? (response as { data: NonNullable<typeof response> extends { data: infer D } ? D : never }).data
-      : null;
+  const {
+    data: response,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useGetPaymentReceiptByIdQuery(id);
 
-  if (isLoading) {
+  const paymentReceipt = response?.data ?? null;
+  if (paymentReceipt) {
+    stableReceipt.current = paymentReceipt;
+  }
+  const receipt = stableReceipt.current;
+
+  const error = queryError
+    ? (queryError as { data?: { message?: string }; message?: string })?.data
+        ?.message ||
+      (queryError as { message?: string })?.message ||
+      "Failed to fetch payment receipt"
+    : null;
+
+  useEffect(() => {
+    if (error && !receipt) {
+      notify.error(error);
+    }
+  }, [error, receipt]);
+
+  if ((isLoading || isFetching) && !receipt) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+          <p className="text-sm text-gray-500">Loading receipt…</p>
+        </div>
       </div>
     );
   }
 
   if (!receipt) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-600">
-          {(error as { data?: { message?: string } })?.data?.message ||
-            "Receipt not found"}
-        </p>
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-gray-50">
+        <p className="text-sm text-gray-500">Receipt not found</p>
         <button
           type="button"
-          className="text-sm text-primary underline"
-          onClick={() => router.back()}
+          onClick={() => router.push("/sales/payment-receipts")}
+          className="text-sm text-primary underline underline-offset-2"
         >
           Go back
         </button>
@@ -63,98 +72,71 @@ export default function PaymentReceiptView({ id }: Props) {
     );
   }
 
+  const canAdjust =
+    String(receipt.receiptStatus || "").toUpperCase() === "RECEIVED" &&
+    String(receipt.adjustmentStatus || "UNADJUSTED").toUpperCase() !==
+      "ADJUSTED";
+
   return (
-    <div className="flex min-h-0 w-full flex-col">
-      <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 sm:h-14 sm:px-5">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold text-slate-900">
-            {receipt.receiptNumber || "Payment receipt"}
-          </h1>
-          <p className="truncate text-[11px] text-slate-500">
-            {receipt.receiptStatus} · {receipt.customerName}
-          </p>
+    <div className="flex min-h-screen w-full flex-col overflow-hidden rounded-lg bg-gray-50">
+      {/* Header: Back + title + status + Adjust only */}
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/sales/payment-receipts")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+            title="Back to list"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span>Sales</span>
+              <span>/</span>
+              <span>Payment Receipt</span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-sm font-semibold text-gray-900">
+                {receipt.receiptNumber ?? "—"}
+              </h1>
+              <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-medium text-white">
+                {String(receipt.receiptStatus || "RECEIVED").toUpperCase()}
+              </span>
+              {receipt.adjustmentStatus ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                  {String(receipt.adjustmentStatus).replaceAll("_", " ")}
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
-      </header>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-4 sm:p-6">
-        <div className="mx-auto max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="text-center">
-            <h2 className="text-base font-bold tracking-wide text-slate-900">
-              PAYMENT RECEIPT
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {formatDate(receipt.receiptDate)}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-sm">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                Receipt no.
-              </p>
-              <p className="mt-0.5 font-medium text-slate-900">
-                {receipt.receiptNumber || "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                Financial year
-              </p>
-              <p className="mt-0.5 font-medium text-slate-900">
-                {receipt.financialYear || "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                Customer
-              </p>
-              <p className="mt-0.5 font-medium text-slate-900">
-                {receipt.customerName}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                Method
-              </p>
-              <p className="mt-0.5 font-medium text-slate-900">
-                {receipt.paymentMethod || "—"}
-              </p>
-            </div>
-            {receipt.transactionReference ? (
-              <div className="col-span-2">
-                <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                  Reference
-                </p>
-                <p className="mt-0.5 font-medium text-slate-900">
-                  {receipt.transactionReference}
-                </p>
-              </div>
-            ) : null}
-            {receipt.notes ? (
-              <div className="col-span-2">
-                <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                  Notes
-                </p>
-                <p className="mt-0.5 text-slate-700">{receipt.notes}</p>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-            <span className="text-sm text-slate-600">Amount</span>
-            <span className="text-lg font-bold text-slate-900">
-              {formatINR(Number(receipt.amount))}
-            </span>
-          </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {canAdjust ? (
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setAdjustmentOpen(true)}
+            >
+              <Scale className="size-3.5" />
+              Adjust payment
+            </Button>
+          ) : null}
         </div>
       </div>
+
+      <main className="min-h-0 flex-1 overflow-y-auto">
+        <ReceiptPreview paymentReceipt={receipt} />
+      </main>
+
+      <PaymentAdjustmentDialog
+        open={adjustmentOpen}
+        onOpenChange={setAdjustmentOpen}
+        paymentReceipt={receipt}
+      />
     </div>
   );
 }

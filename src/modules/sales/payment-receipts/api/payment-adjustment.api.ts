@@ -10,7 +10,7 @@ const PAYMENT_ADJUSTMENT_ENDPOINT = "/payment-adjustments";
 export const paymentAdjustmentApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     createPaymentAdjustment: builder.mutation<
-      PaymentAdjustment,
+      { success: boolean; message?: string; data?: PaymentAdjustment },
       PaymentAdjustmentPayload
     >({
       query: (data) => ({
@@ -19,15 +19,13 @@ export const paymentAdjustmentApi = baseApi.injectEndpoints({
         data,
       }),
       invalidatesTags: (_result, _error, payload) => [
-        { type: "PaymentReceipts" as const, id: payload.paymentId },
+        { type: "PaymentReceipts" as const, id: payload.paymentId || "LIST" },
+        { type: "PaymentReceipts" as const, id: "LIST" },
         { type: "PaymentAdjustments" as const, id: "LIST" },
       ],
     }),
 
-    getPaymentAdjustmentById: builder.query<
-      PaymentAdjustment,
-      string
-    >({
+    getPaymentAdjustmentById: builder.query<PaymentAdjustment, string>({
       query: (id) => ({
         url: `${PAYMENT_ADJUSTMENT_ENDPOINT}/${id}`,
         method: "GET",

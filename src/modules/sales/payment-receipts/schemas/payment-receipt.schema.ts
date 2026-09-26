@@ -1,85 +1,54 @@
 import { z } from "zod";
 
 export const LIMITS = {
-  NAME: 200,
-  PHONE: 20,
-  GSTIN: 15,
-  NOTES: 500,
-  REF: 100,
+  NAME: 120,
+  PHONE: 15,
+  GSTIN: 20,
+  FY: 10,
   INVOICE_ID: 64,
-  FY: 20,
+  REF: 120,
+  NOTES: 500,
 } as const;
 
-/** Block scripts, handlers, URLs, HTML */
-const HARMFUL_RE =
-  /<script|javascript\s*:|vbscript\s*:|on\w+\s*=|data\s*:\s*text\/html|<\s*iframe|<\s*object|<\s*embed|https?:\/\/|www\.|ftp:\/\//i;
-
-function stripUnsafe(s: string): string {
-  return s
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/https?:\/\/[^\s]+/gi, "")
-    .replace(/www\.[^\s]+/gi, "")
-    .replace(/ftp:\/\/[^\s]+/gi, "")
-    .replace(/javascript\s*:/gi, "")
-    .replace(/vbscript\s*:/gi, "")
-    .replace(/on\w+\s*=/gi, "")
+function stripUnsafe(raw: string): string {
+  return String(raw || "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function rejectHarmful(val: string, ctx: z.RefinementCtx) {
-  if (HARMFUL_RE.test(val)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Links, scripts, or code are not allowed",
-    });
-  }
-}
-
 const requiredText = (max: number, msg: string) =>
   z
-    .string()
-    .min(1, msg)
-    .max(max, `Max ${max} characters`)
+    .string({ required_error: msg })
     .transform((v) => stripUnsafe(v))
-    .superRefine((v, ctx) => {
-      if (!v) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
-        return;
-      }
-      rejectHarmful(v, ctx);
-    });
+    .pipe(z.string().min(1, msg).max(max));
 
 const optionalText = (max: number) =>
   z
-    .union([z.string().max(max), z.literal(""), z.null()])
+    .string()
     .optional()
+    .nullable()
     .transform((v) => {
-      if (v === "" || v === undefined || v === null) return null;
-      return stripUnsafe(String(v)).slice(0, max) || null;
-    })
-    .superRefine((v, ctx) => {
-      if (typeof v === "string" && v.length) rejectHarmful(v, ctx);
+      const s = stripUnsafe(String(v ?? ""));
+      return s ? s.slice(0, max) : "";
     });
 
 const optionalPhone = z
-  .union([z.string().max(LIMITS.PHONE), z.literal(""), z.null()])
+  .string()
   .optional()
-  .transform((v) => {
-    if (!v) return null;
-    return stripUnsafe(v).replace(/[^\d+]/g, "").slice(0, LIMITS.PHONE) || null;
-  })
-  .refine(
-    (v) => !v || /^\+?[0-9]{8,15}$/.test(v),
-    "Enter phone with country code (e.g. +919876543210)",
-  );
+  .nullable()
+  .transform((v) => stripUnsafe(String(v ?? "")).slice(0, LIMITS.PHONE));
 
 export const paymentReceiptFormSchema = z
   .object({
-    receiptDate: z.string().min(1, "Receipt date is required"),
+    receiptDate: z
+      .string({ required_error: "Receipt date is required" })
+      .min(1, "Receipt date is required"),
     financialYear: optionalText(LIMITS.FY),
 
+    customerId: z
+      .string({ required_error: "Customer is required" })
+      .min(1, "Please select a customer"),
     customerName: requiredText(LIMITS.NAME, "Customer name is required"),
     customerPhone: optionalPhone,
     customerGSTIN: optionalText(LIMITS.GSTIN),
@@ -108,7 +77,38 @@ export const paymentReceiptFormSchema = z
 
 export type PaymentReceiptFormSchema = z.infer<typeof paymentReceiptFormSchema>;
 
-/** Sanitize free text on paste / change (UI helper) */
 export function sanitizeFieldInput(raw: string, maxLen: number): string {
   return stripUnsafe(raw).slice(0, maxLen);
+}
+
+/** YYYY-MM-DD (or any parseable) → full ISO datetime */
+export function toIsoReceiptDate(dateStr: string): string {
+  if (!dateStr) return new Date().toISOString();
+  // Already full ISO
+  if (dateStr.includes("T")) {
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  }
+  // date-only → noon local-ish fixed as UTC midday to avoid TZ day shift noise
+  const d = new Date(`${dateStr}T12:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+/** Indian FY Apr–Mar → "2026-27" */
+export function computeFinancialYear(dateStr: string): string {
+  try {
+    const d = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      return m >= 4 ? `${y}-${String(y + 1).slice(-2)}` : `${y - 1}-${String(y).slice(-2)}`;
+    }
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    if (m >= 4) return `${y}-${String(y + 1).slice(-2)}`;
+    return `${y - 1}-${String(y).slice(-2)}`;
+  } catch {
+    return String(new Date().getFullYear());
+  }
 }

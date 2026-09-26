@@ -1,111 +1,128 @@
-
 // ==========================================================
 // PAYMENT RECEIPT CORE ENUMS
 // ==========================================================
 
-export type ReceiptVoucherStatus =
-  | "CANCELLED"
-  | "RECEIVED";
-
-export type ReceiptSource =
-  | "MANUAL"
-  | "ONLINE"
-  | "OTHER"
-  | "POS";
-
+export type ReceiptVoucherStatus = "CANCELLED" | "RECEIVED";
+export type ReceiptSource = "MANUAL" | "ONLINE" | "OTHER" | "POS";
 export type PaymentReceiptStatus = ReceiptVoucherStatus;
-
-export type PaymentMethod =
-  | "CASH"
-  | "UPI"
-  | "CARD"
-  | "NET_BANKING";
+export type PaymentMethod = "CASH" | "UPI" | "CARD" | "NET_BANKING";
+export type AdjustmentStatus = "UNADJUSTED" | "PARTIALLY_ADJUSTED" | "ADJUSTED";
+export type AdjustmentType = "ADVANCE" | "INSTALLMENT";
 
 // ==========================================================
-// PAYMENT RECEIPT MODEL
+// NESTED CUSTOMER (from API response)
+// ==========================================================
+
+export interface PaymentReceiptCustomer {
+  id: string;
+  tenantId?: string | null;
+  branchId?: string | null;
+  customerCode?: string | null;
+  customerType?: string | null;
+  name: string;
+  mobile?: string | null;
+  alternateMobile?: string | null;
+  email?: string | null;
+  gstin?: string | null;
+  pan?: string | null;
+  companyName?: string | null;
+  creditLimit?: string | number | null;
+  creditDays?: number | null;
+  openingBalance?: string | number | null;
+  outstandingBalance?: string | number | null;
+  rewardPoints?: number | null;
+  isActive?: boolean;
+  notes?: string | null;
+}
+
+// ==========================================================
+// NESTED PAYMENT (from API response)
+// ==========================================================
+
+export interface PaymentReceiptPayment {
+  id: string;
+  tenantId?: string | null;
+  branchId?: string | null;
+  paymentNumber?: string | null;
+  customerId?: string | null;
+  invoiceId?: string | null;
+  amount: string | number;
+  paymentMethod: PaymentMethod | string;
+  paymentStatus: string;
+  paymentDate: string;
+  remarks?: string | null;
+  documentType?: string | null;
+  documentNumber?: string | null;
+  paymentGateway?: string | null;
+  gatewayOrderId?: string | null;
+  gatewayPaymentId?: string | null;
+  gatewaySignature?: string | null;
+  transactionReference?: string | null;
+  gatewayResponse?: unknown;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
+}
+
+// ==========================================================
+// PAYMENT RECEIPT MODEL (matches API)
 // ==========================================================
 
 export interface PaymentReceipt {
   id: string;
-  businessId?: string | null;
+  tenantId?: string | null;
   branchId?: string | null;
 
   receiptNumber?: string | null;
+  /** Full ISO datetime from API e.g. 2026-09-18T12:59:00.000Z */
   receiptDate: string;
   financialYear: string;
 
-  receiptStatus: ReceiptVoucherStatus;
-  receiptSource: ReceiptSource;
+  receiptStatus: ReceiptVoucherStatus | string;
+  receiptSource: ReceiptSource | string;
+  adjustmentStatus?: AdjustmentStatus | string | null;
 
+  customerId?: string | null;
   customerName: string;
   customerPhone?: string | null;
   customerGSTIN?: string | null;
 
   paymentId?: string | null;
-  invoiceId?: string | null;
-
-  payment?: {
-    id: string;
-    businessId?: string | null;
-    branchId?: string | null;
-    paymentNumber?: string | null;
-    customerId: string;
-    invoiceId?: string | null;
-    amount: string | number;
-    paymentMethod: PaymentMethod;
-    paymentStatus: string;
-    paymentDate: string;
-    documentType?: string | null;
-    documentNumber?: string | null;
-    paymentGateway?: string | null;
-    gatewayOrderId?: string | null;
-    gatewayPaymentId?: string | null;
-    gatewaySignature?: string | null;
-    transactionReference?: string | null;
-    gatewayResponse?: unknown;
-    createdBy: string;
-    updatedBy?: string | null;
-    createdAt: string;
-    updatedAt: string;
-    deletedAt?: string | null;
-  };
-
   amount: number | string;
-
+  remarks?: string | null;
   notes?: string | null;
 
-  createdBy: string;
+  createdBy?: string | null;
   updatedBy?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   deletedAt?: string | null;
+
+  customer?: PaymentReceiptCustomer | null;
+  payment?: PaymentReceiptPayment | null;
 }
+
 // ==========================================================
-// PAYMENT RECEIPT FORM VALUES
+// FORM VALUES
 // ==========================================================
 
 export interface PaymentReceiptFormValues {
-  receiptNumber?: string;
-  receiptDate: string;
-  financialYear?: string;
-
-  /** UI only — never sent in payload */
-  customerId?: string;
+  receiptDate: string; // date input YYYY-MM-DD (converted to ISO on submit)
+  financialYear: string;
+  customerId: string;
   customerName: string;
-  customerPhone?: string;
-  customerGSTIN?: string;
-  invoiceId?: string;
+  customerPhone: string;
+  customerGSTIN: string;
+  invoiceId: string;
   paymentMethod: PaymentMethod;
-  // Required for every payment method except CASH (enforced in the form
-  // validation schema); optional/empty when paymentMethod is CASH.
-  transactionReference?: string;
+  transactionReference: string;
   amount: number;
-
-  notes?: string;
+  notes: string;
 }
 
 export const PAYMENT_RECEIPT_FORM_DEFAULTS: PaymentReceiptFormValues = {
-  receiptNumber: "",
   receiptDate: new Date().toISOString().slice(0, 10),
   financialYear: "",
   customerId: "",
@@ -120,15 +137,13 @@ export const PAYMENT_RECEIPT_FORM_DEFAULTS: PaymentReceiptFormValues = {
 };
 
 // ==========================================================
-// CREATE PAYMENT RECEIPT
+// CREATE / UPDATE PAYLOAD
 // ==========================================================
 
-/** No businessId / branchId / createdBy / customerId — backend uses auth */
 export interface CreatePaymentReceiptPayload {
-  receiptNumber?: string;
-  receiptDate: string;
-  financialYear?: string;
-
+  receiptDate: string; // full ISO
+  financialYear: string;
+  customerId: string;
   customerName: string;
   customerPhone?: string;
   customerGSTIN?: string;
@@ -136,29 +151,45 @@ export interface CreatePaymentReceiptPayload {
   paymentMethod: PaymentMethod;
   transactionReference?: string;
   amount: number;
-
   notes?: string;
 }
 
-// ==========================================================
-// UPDATE PAYMENT RECEIPT
-// ==========================================================
-
-export type UpdatePaymentReceiptPayload =
-  Partial<CreatePaymentReceiptPayload>;
+export type UpdatePaymentReceiptPayload = Partial<CreatePaymentReceiptPayload>;
 
 // ==========================================================
-// QUERY PARAMS
+// ADJUSTMENT
+// ==========================================================
+
+export interface PaymentAdjustmentPayload {
+  tenantId?: string;
+  branchId?: string;
+  customerId?: string;
+  paymentId?: string;
+  documentType: "SALES_INVOICE";
+  documentId: string;
+  documentNumber: string;
+  amount: number;
+  adjustmentType: AdjustmentType;
+  adjustmentDate: string;
+  remarks?: string;
+  createdBy?: string | null;
+}
+
+export interface PaymentAdjustment {
+  id: string;
+  [key: string]: unknown;
+}
+
+// ==========================================================
+// QUERY / RESPONSE
 // ==========================================================
 
 export interface PaymentReceiptQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-
   customerId?: string;
-  status?: PaymentReceiptStatus;
-
+  status?: PaymentReceiptStatus | string;
   fromDate?: string;
   toDate?: string;
 }
@@ -169,51 +200,20 @@ export interface PaymentReceiptResponse {
   data: PaymentReceipt;
 }
 
-// ==========================================================
-// LIST RESPONSE
-// ==========================================================
-
 export interface PaymentReceiptListResponse {
+  success: boolean;
+  message?: string;
   data: PaymentReceipt[];
-
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
+  pagination?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
   };
-}
-
-
-
-
-
-
-
-export interface PaymentAdjustmentPayload {
-  businessId: string;
-  branchId?: string;
-  customerId: string;
-  paymentId: string;
-
-  documentType: "SALES_INVOICE";
-  documentId: string;
-  documentNumber: string;
-
-  amount: number;
-  adjustmentType: "ADVANCE" | "INSTALLMENT";
-
-  adjustmentDate?: string;
-  remarks?: string;
-  createdBy: string;
-}
-
-export interface PaymentAdjustment {
-  id: string;
-  paymentReceiptId: string;
-  adjustmentAmount: number;
-  adjustmentType: string;
-  reason?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
 }
