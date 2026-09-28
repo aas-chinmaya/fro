@@ -193,11 +193,51 @@ export function InvoicePaymentSection() {
               {req ? <span className="text-red-500"> *</span> : null}
             </Label>
             <Input
-              type="number"
-              min={0}
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               className="h-9"
-              {...register("paidAmount", { valueAsNumber: true })}
+              value={
+                paidAmount === null || paidAmount === undefined || paidAmount === ""
+                  ? ""
+                  : String(Number(paidAmount) || 0)
+              }
+              onChange={(ev) => {
+                // Strip leading zeros / non-numeric; allow one decimal point
+                let raw = ev.target.value.replace(/[^0-9.]/g, "");
+                // collapse multiple dots
+                const parts = raw.split(".");
+                if (parts.length > 2) {
+                  raw = parts[0] + "." + parts.slice(1).join("");
+                }
+                // strip leading zeros except before decimal (04646 → 4646, 0.5 stays)
+                if (raw.includes(".")) {
+                  const [intPart, decPart = ""] = raw.split(".");
+                  const cleanedInt = intPart.replace(/^0+(?=\d)/, "") || "0";
+                  raw = cleanedInt + "." + decPart.slice(0, 2);
+                } else {
+                  raw = raw.replace(/^0+(?=\d)/, "") || (raw === "" ? "" : "0");
+                }
+                if (raw === "" || raw === ".") {
+                  setValue("paidAmount", 0, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  return;
+                }
+                const n = Number(raw);
+                if (!Number.isFinite(n) || n < 0) return;
+                setValue("paidAmount", n, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
+              onBlur={() => {
+                const n = Number(paidAmount) || 0;
+                setValue("paidAmount", Math.round(n * 100) / 100, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
             />
             {e("paidAmount") ? (
               <p className="text-[11px] text-red-600">{e("paidAmount")}</p>

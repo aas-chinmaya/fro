@@ -158,6 +158,7 @@ export interface QuotationListParams {
 }
 
 export interface QuotationListResponse {
+  success?: boolean;
   data: Quotation[];
   meta?: {
     total?: number;
@@ -169,6 +170,7 @@ export interface QuotationListResponse {
 }
 
 export interface QuotationResponse {
+  success?: boolean;
   data: Quotation;
   message?: string;
 }

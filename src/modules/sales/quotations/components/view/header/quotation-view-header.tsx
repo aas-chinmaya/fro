@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -28,7 +29,7 @@ interface QuotationViewHeaderProps {
 /**
  * Status rules:
  * - DRAFT      → Edit only
- * - FINALIZED  → Accept / Reject (with confirm + statusNote)
+ * - FINALIZED  → Accept / Reject (with confirm + required statusNote)
  * - ACCEPTED / REJECTED / EXPIRED → no approve/reject again
  */
 export function QuotationViewHeader({
@@ -47,9 +48,9 @@ export function QuotationViewHeader({
   const canDownload = status !== "DRAFT";
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<"ACCEPTED" | "REJECTED" | null>(
-    null,
-  );
+  const [pendingStatus, setPendingStatus] = useState<
+    "ACCEPTED" | "REJECTED" | null
+  >(null);
   const [statusNote, setStatusNote] = useState("");
 
   const openConfirm = (next: "ACCEPTED" | "REJECTED") => {
@@ -65,9 +66,12 @@ export function QuotationViewHeader({
     setStatusNote("");
   };
 
+  const noteOk = statusNote.trim().length > 0;
+
   const confirmAction = () => {
     if (!pendingStatus) return;
-    onStatusChange?.(pendingStatus, statusNote.trim() || undefined);
+    if (!noteOk) return;
+    onStatusChange?.(pendingStatus, statusNote.trim());
     closeConfirm();
   };
 
@@ -186,16 +190,22 @@ export function QuotationViewHeader({
             </p>
 
             <label className="mt-4 block text-xs font-medium text-slate-600">
-              Note (optional)
+              Status note <span className="text-red-500">*</span>
             </label>
             <textarea
               value={statusNote}
               onChange={(e) => setStatusNote(e.target.value)}
               rows={3}
               maxLength={500}
-              placeholder="Add a status note…"
+              required
+              placeholder="Enter a status note…"
               className="mt-1 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
             />
+            {!noteOk ? (
+              <p className="mt-1 text-[11px] text-red-500">
+                Status note is required
+              </p>
+            ) : null}
 
             <div className="mt-4 flex justify-end gap-2">
               <Button
@@ -210,7 +220,7 @@ export function QuotationViewHeader({
               <Button
                 type="button"
                 size="sm"
-                disabled={statusLoading}
+                disabled={statusLoading || !noteOk}
                 onClick={confirmAction}
                 className={
                   pendingStatus === "ACCEPTED"

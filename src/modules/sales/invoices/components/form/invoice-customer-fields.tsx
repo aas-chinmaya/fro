@@ -34,11 +34,42 @@ export function InvoiceCustomerFields() {
   const err = (key: keyof InvoiceFormValues) =>
     (errors[key]?.message as string | undefined) || undefined;
 
+  /** Clear all buyer/billing fields when customer is deselected (same flow as quotation) */
+  const clearCustomerFields = () => {
+    setValue("buyerName", "", { shouldDirty: true, shouldValidate: true });
+    setValue("buyerCompanyName", "", { shouldDirty: true });
+    setValue("buyerPhone", "", { shouldDirty: true, shouldValidate: true });
+    setValue("buyerEmail", null, { shouldDirty: true });
+    setValue("buyerGSTIN", "", { shouldDirty: true });
+    setValue("buyerPAN", "", { shouldDirty: true });
+    setValue("billingAddressLine1", "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("billingAddressLine2", "", { shouldDirty: true });
+    setValue("billingCity", "", { shouldDirty: true, shouldValidate: true });
+    setValue("billingPincode", "", { shouldDirty: true, shouldValidate: true });
+    setValue("billingCountry", "India", { shouldDirty: true });
+    setValue("billingState", "", { shouldDirty: true, shouldValidate: true });
+    setValue("billingStateCode", "", { shouldDirty: true });
+    setValue("placeOfSupply", "", { shouldDirty: true, shouldValidate: true });
+    setValue("placeOfSupplyCode", "", { shouldDirty: true });
+  };
+
   const fillFromCustomer = (c: SelectedCustomer | null) => {
-    if (!c) return;
-    setValue("buyerName", c.name || "", { shouldDirty: true, shouldValidate: true });
+    if (!c) {
+      clearCustomerFields();
+      return;
+    }
+    setValue("buyerName", c.name || "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setValue("buyerCompanyName", c.companyName || "", { shouldDirty: true });
-    setValue("buyerPhone", c.mobile || "", { shouldDirty: true, shouldValidate: true });
+    setValue("buyerPhone", c.mobile || "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setValue("buyerEmail", c.email || null, { shouldDirty: true });
     setValue("buyerGSTIN", c.gstin || "", { shouldDirty: true });
     setValue("buyerPAN", c.pan || "", { shouldDirty: true });
@@ -47,10 +78,19 @@ export function InvoiceCustomerFields() {
     if (a) {
       const line1 = a.addressLine1 || a.line1 || "";
       const line2 = a.addressLine2 || a.line2 || "";
-      setValue("billingAddressLine1", line1, { shouldDirty: true });
+      setValue("billingAddressLine1", line1, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
       setValue("billingAddressLine2", line2 || "", { shouldDirty: true });
-      setValue("billingCity", a.city || "", { shouldDirty: true });
-      setValue("billingPincode", a.pincode || "", { shouldDirty: true });
+      setValue("billingCity", a.city || "", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      setValue("billingPincode", a.pincode || "", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
       setValue("billingCountry", a.country || "India", { shouldDirty: true });
       if (a.state) {
         const match = STATES.find(
@@ -59,9 +99,15 @@ export function InvoiceCustomerFields() {
             s.value === a.state!.toLowerCase(),
         );
         if (match) {
-          setValue("billingState", match.label, { shouldDirty: true });
+          setValue("billingState", match.label, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
           setValue("billingStateCode", match.code, { shouldDirty: true });
-          setValue("placeOfSupply", match.label, { shouldDirty: true });
+          setValue("placeOfSupply", match.label, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
           setValue("placeOfSupplyCode", match.code, { shouldDirty: true });
         } else {
           setValue("billingState", a.state, { shouldDirty: true });

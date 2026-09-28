@@ -271,29 +271,44 @@ export function QuotationForm({
     const withStatus = { ...values, status };
 
     try {
-      if (mode === "create") {
-        // Never send tenantId / branchId / createdBy — backend uses auth
+      /**
+       * FINALIZE (create OR edit mode):
+       *   always same as create → POST /quotations/create (createQuotation)
+       *   full sanitizeCreatePayload + status FINALIZED
+       *
+       * DRAFT create:
+       *   POST /quotations/create
+       *
+       * DRAFT edit (Update button):
+       *   PUT /quotations/:id
+       */
+      if (status === "FINALIZED") {
         const payload = sanitizeCreatePayload(withStatus);
         const res = await createQuotation(payload).unwrap();
-        notify.success(
-          res.message ||
-            (status === "FINALIZED" ? "Quotation finalized" : "Draft saved"),
-        );
+        notify.success(res.message || "Quotation finalized");
         onSuccess?.(res.data);
-      } else if (mode === "edit" && quotation?.id) {
+        return;
+      }
+
+      if (mode === "create") {
+        const payload = sanitizeCreatePayload(withStatus);
+        const res = await createQuotation(payload).unwrap();
+        notify.success(res.message || "Draft saved");
+        onSuccess?.(res.data);
+        return;
+      }
+
+      if (mode === "edit" && quotation?.id) {
         if (isFinalized) {
-          notify.error("Finalized quotations cannot be edited");
+          notify.error("This quotation can no longer be edited");
           return;
         }
         const payload = sanitizeUpdatePayload(withStatus);
         const res = await updateQuotation({
           id: quotation.id,
-          data: { ...payload, status },
+          data: { ...payload, status: "DRAFT" },
         }).unwrap();
-        notify.success(
-          res.message ||
-            (status === "FINALIZED" ? "Quotation finalized" : "Draft updated"),
-        );
+        notify.success(res.message || "Draft updated");
         onSuccess?.(res.data);
       }
     } catch (err: unknown) {

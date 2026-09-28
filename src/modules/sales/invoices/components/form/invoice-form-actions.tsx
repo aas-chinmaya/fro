@@ -46,6 +46,13 @@ export function InvoiceFormActions({
   const items = useWatch({ control, name: "items" });
   const terms = useWatch({ control, name: "termsAndConditions" });
   const signature = useWatch({ control, name: "signature" });
+  const showBankDetails = useWatch({ control, name: "showBankDetails" });
+  const sellerBankName = useWatch({ control, name: "sellerBankName" });
+  const sellerBankAccountNumber = useWatch({
+    control,
+    name: "sellerBankAccountNumber",
+  });
+  const sellerBankIFSC = useWatch({ control, name: "sellerBankIFSC" });
 
   const filledItems = (items || []).filter(
     (it) => (it?.itemName || "").trim().length > 0,
@@ -65,15 +72,27 @@ export function InvoiceFormActions({
 
   const hasInvoiceDate = !!(invoiceDate || "").trim();
 
-  const canSaveDraft =
+  const hasSignature = !!(signature && String(signature).trim());
+  // Bank is mandatory on finalize when showBankDetails is on (invoice rule)
+  const bankOk =
+    !showBankDetails ||
+    (!!(sellerBankName || "").trim() &&
+      !!(sellerBankAccountNumber || "").trim() &&
+      !!(sellerBankIFSC || "").trim());
+
+  /** Draft: always allowed when not locked / not submitting (partial save OK) */
+  const canSaveDraft = !readOnly && !isSubmitting;
+
+  /** Finalize: full required fields + authorized signature (mandatory on invoice) */
+  const canFinalize =
     !readOnly &&
+    !isSubmitting &&
     customerOk &&
     hasInvoiceDate &&
     hasItems &&
     hasTerms &&
-    !isSubmitting;
-  const canFinalize =
-    canSaveDraft && !!(signature && String(signature).trim());
+    hasSignature &&
+    bankOk;
 
   const hint = !customerOk
     ? "Complete required customer fields."
@@ -83,9 +102,11 @@ export function InvoiceFormActions({
         ? "Add at least one item."
         : !hasTerms
           ? "Terms & conditions are required."
-          : !canFinalize
+          : !hasSignature
             ? "Authorized signatory required to finalize."
-            : null;
+            : !bankOk
+              ? "Bank details required when bank section is enabled."
+              : null;
 
   return (
     <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6">
@@ -131,8 +152,8 @@ export function InvoiceFormActions({
                 {isSubmitting
                   ? "Saving…"
                   : mode === "create"
-                    ? "Save as draft"
-                    : "Update draft"}
+                    ? "Save"
+                    : "Update"}
               </Button>
               <Button
                 type="button"
@@ -140,7 +161,7 @@ export function InvoiceFormActions({
                 onClick={() => onSubmitIntent("FINALIZED")}
                 className="w-full sm:w-auto"
               >
-                {isSubmitting ? "Submitting…" : "Finalize invoice"}
+                {isSubmitting ? "Submitting…" : "Finalize"}
               </Button>
             </>
           ) : (

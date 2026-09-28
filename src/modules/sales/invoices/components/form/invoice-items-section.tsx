@@ -155,7 +155,7 @@ export function InvoiceItemsSection({
               Qty
             </span>
             <span className="font-semibold tabular-nums text-slate-800">
-              {formatINR(totalQty)}
+              {totalQty}
             </span>
           </div>
           <div className="flex flex-col">
@@ -163,7 +163,7 @@ export function InvoiceItemsSection({
               Gross
             </span>
             <span className="font-semibold tabular-nums text-slate-800">
-              {formatINR(grossSum)}
+              {grossSum}
             </span>
           </div>
           <div className="flex flex-col">
@@ -171,7 +171,7 @@ export function InvoiceItemsSection({
               Disc
             </span>
             <span className="font-semibold tabular-nums text-slate-800">
-              {formatINR(discSum)}
+              {discSum}
             </span>
           </div>
           <div className="flex flex-col">
@@ -179,7 +179,7 @@ export function InvoiceItemsSection({
               {isInter ? "IGST" : "GST"}
             </span>
             <span className="font-semibold tabular-nums text-slate-800">
-              {formatINR(taxSum)}
+              {taxSum}
             </span>
           </div>
           <div className="col-span-2 flex flex-col items-end sm:col-span-1 lg:col-span-1">
@@ -187,7 +187,7 @@ export function InvoiceItemsSection({
               Total
             </span>
             <span className="text-base font-bold tabular-nums text-slate-900">
-              {formatINR(grand)}
+              {grand}
             </span>
           </div>
         </div>

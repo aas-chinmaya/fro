@@ -32,11 +32,7 @@ function unwrapList(response: unknown): QuotationListResponse {
 
   const inner = (response as { data?: unknown })?.data;
 
-  if (
-    inner &&
-    typeof inner === "object" &&
-    "data" in (inner as object)
-  ) {
+  if (inner && typeof inner === "object" && "data" in (inner as object)) {
     return inner as QuotationListResponse;
   }
 
@@ -59,11 +55,7 @@ function unwrapOne(response: unknown): QuotationResponse {
     return response as QuotationResponse;
   }
 
-  if (
-    response &&
-    typeof response === "object" &&
-    "id" in response
-  ) {
+  if (response && typeof response === "object" && "id" in response) {
     return {
       success: true,
       message: "OK",
@@ -73,19 +65,11 @@ function unwrapOne(response: unknown): QuotationResponse {
 
   const inner = (response as { data?: unknown })?.data;
 
-  if (
-    inner &&
-    typeof inner === "object" &&
-    "data" in (inner as object)
-  ) {
+  if (inner && typeof inner === "object" && "data" in (inner as object)) {
     return inner as QuotationResponse;
   }
 
-  if (
-    inner &&
-    typeof inner === "object" &&
-    "id" in (inner as object)
-  ) {
+  if (inner && typeof inner === "object" && "id" in (inner as object)) {
     return {
       success: true,
       message: "OK",
@@ -106,7 +90,6 @@ export const quotationApi = baseApi.injectEndpoints({
       QuotationListResponse,
       QuotationListParams | undefined
     >({
-     
       query: (params) => ({
         url: `${QUOTATION_ENDPOINT}/list/`,
         method: "GET",
@@ -120,17 +103,9 @@ export const quotationApi = baseApi.injectEndpoints({
                 type: "Quotations" as const,
                 id,
               })),
-              {
-                type: "Quotations" as const,
-                id: "LIST",
-              },
+              { type: "Quotations" as const, id: "LIST" },
             ]
-          : [
-              {
-                type: "Quotations" as const,
-                id: "LIST",
-              },
-            ],
+          : [{ type: "Quotations" as const, id: "LIST" }],
     }),
 
     getQuotationById: builder.query<QuotationResponse, string>({
@@ -140,10 +115,7 @@ export const quotationApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
       providesTags: (_result, _error, id) => [
-        {
-          type: "Quotations" as const,
-          id,
-        },
+        { type: "Quotations" as const, id },
       ],
     }),
 
@@ -152,17 +124,12 @@ export const quotationApi = baseApi.injectEndpoints({
       QuotationCreatePayload
     >({
       query: (data) => ({
-         url: `${QUOTATION_ENDPOINT}/create`,
+        url: `${QUOTATION_ENDPOINT}/create`,
         method: "POST",
         data,
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
-      invalidatesTags: [
-        {
-          type: "Quotations",
-          id: "LIST",
-        },
-      ],
+      invalidatesTags: [{ type: "Quotations", id: "LIST" }],
     }),
 
     updateQuotation: builder.mutation<
@@ -179,14 +146,8 @@ export const quotationApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
       invalidatesTags: (_result, _error, { id }) => [
-        {
-          type: "Quotations",
-          id,
-        },
-        {
-          type: "Quotations",
-          id: "LIST",
-        },
+        { type: "Quotations", id },
+        { type: "Quotations", id: "LIST" },
       ],
     }),
 
@@ -204,14 +165,8 @@ export const quotationApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
       invalidatesTags: (_result, _error, { id }) => [
-        {
-          type: "Quotations",
-          id,
-        },
-        {
-          type: "Quotations",
-          id: "LIST",
-        },
+        { type: "Quotations", id },
+        { type: "Quotations", id: "LIST" },
       ],
     }),
 
@@ -222,23 +177,18 @@ export const quotationApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
       invalidatesTags: (_result, _error, id) => [
-        {
-          type: "Quotations",
-          id,
-        },
-        {
-          type: "Quotations",
-          id: "LIST",
-        },
+        { type: "Quotations", id },
+        { type: "Quotations", id: "LIST" },
       ],
     }),
 
-    /** Backend PDF: GET /quotations/:id/pdf → blob download */
+    /** Backend PDF: GET /quotations/:id/pdf → blob */
     downloadQuotationPdf: builder.mutation<Blob, string>({
       query: (id) => ({
         url: `${QUOTATION_ENDPOINT}/${id}/pdf`,
         method: "GET",
-        responseHandler: async (response: Response) => response.blob(),      }),
+        responseHandler: async (response: Response) => response.blob(),
+      }),
     }),
   }),
 });

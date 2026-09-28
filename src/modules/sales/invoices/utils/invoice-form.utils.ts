@@ -52,6 +52,7 @@ export function emptyLineItem(): InvoiceItemFormValues {
     productName: "",
     description: "",
     hsnSac: "",
+    hsnSacCode: "",
     quantity: 1,
     unit: "PCS",
     rate: 0,
@@ -212,6 +213,7 @@ export function mapInvoiceToFormValues(
       amount: num(it.amount ?? it.total),
       unit: it.unit || "",
       hsnSac: it.hsnSac || it.hsnSacCode || "",
+      hsnSacCode: it.hsnSacCode || it.hsnSac || "",
       description: it.description || "",
     })),
     taxableAmount: num(inv.taxableAmount),
@@ -286,32 +288,61 @@ export function applyTotalsToValues(
   values: InvoiceFormValues,
 ): InvoiceFormValues {
   const taxType = (values.taxType || "INTRA_STATE") as TaxType;
-  const items = (values.items || []).map((it) => lineTotals(it, taxType));
+  const items = (values.items || []).map((it) => {
+    const calc = calcLine(it, taxType);
+    return {
+      ...it,
+      taxableAmount: calc.taxable,
+      taxAmount: calc.taxAmount,
+      cgstRate: calc.cgstRate,
+      sgstRate: calc.sgstRate,
+      igstRate: calc.igstRate,
+      cgstAmount: calc.cgstAmount,
+      sgstAmount: calc.sgstAmount,
+      igstAmount: calc.igstAmount,
+      amount: calc.taxable,
+      total: calc.total,
+      // keep per-line discount amount for summary aggregation
+      discountAmount: calc.discountAmount,
+    } as InvoiceItemFormValues & { discountAmount?: number };
+  });
   const filled = items.filter(
     (it) => (it.itemName || it.productName || "").trim().length > 0,
   );
   let taxable = 0;
+  let discount = 0;
   let cgst = 0;
   let sgst = 0;
   let igst = 0;
   let qty = 0;
   for (const it of filled) {
     taxable += num(it.taxableAmount);
+    discount += num((it as { discountAmount?: number }).discountAmount);
     cgst += num(it.cgstAmount);
     sgst += num(it.sgstAmount);
     igst += num(it.igstAmount);
     qty += num(it.quantity);
   }
-  const grand = taxable + cgst + sgst + igst + num(values.roundOffAmount);
+  // Round-off: nearest rupee when enabled via non-zero preference in form
+  const rawGrand = taxable + cgst + sgst + igst;
+  let roundOff = num(values.roundOffAmount);
+  // If round-off was previously computed, keep; else compute nearest
+  if (roundOff === 0) {
+    const nearest = Math.round(rawGrand);
+    roundOff = Math.round((nearest - rawGrand) * 100) / 100;
+  }
+  const grand = Math.round((rawGrand + roundOff) * 100) / 100;
   return {
     ...values,
     items,
     totalItems: filled.length,
     totalQuantity: qty,
-    taxableAmount: taxable,
-    cgstAmount: cgst,
-    sgstAmount: sgst,
-    igstAmount: igst,
+    taxableAmount: Math.round(taxable * 100) / 100,
+    discountAmount: Math.round(discount * 100) / 100,
+    cgstAmount: Math.round(cgst * 100) / 100,
+    sgstAmount: Math.round(sgst * 100) / 100,
+    igstAmount: Math.round(igst * 100) / 100,
+    roundOffAmount: roundOff,
     grandTotal: grand,
   };
 }
@@ -395,7 +426,19 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
           return d || null;
         })(),
         hsnSac: (() => {
-          const h = sanitizePlainText(it.hsnSac || it.hsnSacCode, 12).replace(/[^0-9A-Za-z]/g, "");
+          const h = sanitizePlainText(
+            (it as { hsnSac?: string; hsnSacCode?: string }).hsnSac ||
+              (it as { hsnSacCode?: string }).hsnSacCode,
+            12,
+          ).replace(/[^0-9A-Za-z]/g, "");
+          return h || null;
+        })(),
+        hsnSacCode: (() => {
+          const h = sanitizePlainText(
+            (it as { hsnSac?: string; hsnSacCode?: string }).hsnSacCode ||
+              (it as { hsnSac?: string }).hsnSac,
+            12,
+          ).replace(/[^0-9A-Za-z]/g, "");
           return h || null;
         })(),
         unit: (() => {
@@ -418,6 +461,26 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
     cessAmount: num(rest.cessAmount),
     roundOffAmount: num(rest.roundOffAmount),
     grandTotal: num(rest.grandTotal),
+    // Seller / business snapshot from session (never hardcode)
+    sellerTradeName: rest.sellerTradeName || null,
+    sellerLegalName: rest.sellerLegalName || null,
+    sellerGSTIN: rest.sellerGSTIN || null,
+    sellerPAN: rest.sellerPAN || null,
+    sellerPhone: rest.sellerPhone || null,
+    sellerEmail: rest.sellerEmail || null,
+    sellerAddressLine1: rest.sellerAddressLine1 || null,
+    sellerAddressLine2: rest.sellerAddressLine2 || null,
+    sellerCity: rest.sellerCity || null,
+    sellerState: rest.sellerState || null,
+    sellerStateCode: rest.sellerStateCode || null,
+    sellerPincode: rest.sellerPincode || null,
+    sellerCountry: rest.sellerCountry || "India",
+    sellerBankName: rest.sellerBankName || null,
+    sellerBankAccountNumber: rest.sellerBankAccountNumber || null,
+    sellerBankIFSC: rest.sellerBankIFSC || null,
+    sellerBankBranch: rest.sellerBankBranch || null,
+    sellerUPIId: rest.sellerUPIId || null,
+
     paymentStatus: rest.paymentStatus || "PENDING",
     paymentMethod: rest.paymentMethod || "Cash",
     paidAmount: num(rest.paidAmount),
@@ -431,8 +494,9 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
       return n || null;
     })(),
     termsAndConditions: (() => {
-      const x = sanitizePlainText(rest.termsAndConditions, 2000);
-      return x || "";
+      // Preserve rich-text HTML like quotation; schema enforces plain length
+      const t = String(rest.termsAndConditions || "").trim();
+      return t || "";
     })(),
     signature: rest.signature || null,
   };

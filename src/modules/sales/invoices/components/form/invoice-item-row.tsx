@@ -214,6 +214,10 @@ export function InvoiceItemRow({
     let clean = sanitizePlainText(raw, max);
     if (field === "hsnSac") {
       clean = clean.replace(/[^0-9A-Za-z]/g, "").slice(0, 12);
+      // Keep hsnSacCode in sync (quotation naming) for API compatibility
+      setValue(`${prefix}.hsnSacCode` as `items.${number}.hsnSacCode`, clean || null, {
+        shouldDirty: true,
+      });
     }
     setValue(
       `${prefix}.${field}`,
