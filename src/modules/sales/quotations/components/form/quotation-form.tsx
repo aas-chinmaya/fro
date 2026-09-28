@@ -271,44 +271,29 @@ export function QuotationForm({
     const withStatus = { ...values, status };
 
     try {
-      /**
-       * FINALIZE (create OR edit mode):
-       *   always same as create → POST /quotations/create (createQuotation)
-       *   full sanitizeCreatePayload + status FINALIZED
-       *
-       * DRAFT create:
-       *   POST /quotations/create
-       *
-       * DRAFT edit (Update button):
-       *   PUT /quotations/:id
-       */
-      if (status === "FINALIZED") {
-        const payload = sanitizeCreatePayload(withStatus);
-        const res = await createQuotation(payload).unwrap();
-        notify.success(res.message || "Quotation finalized");
-        onSuccess?.(res.data);
-        return;
-      }
-
       if (mode === "create") {
+        // Never send tenantId / branchId / createdBy — backend uses auth
         const payload = sanitizeCreatePayload(withStatus);
         const res = await createQuotation(payload).unwrap();
-        notify.success(res.message || "Draft saved");
+        notify.success(
+          res.message ||
+            (status === "FINALIZED" ? "Quotation finalized" : "Draft saved"),
+        );
         onSuccess?.(res.data);
-        return;
-      }
-
-      if (mode === "edit" && quotation?.id) {
+      } else if (mode === "edit" && quotation?.id) {
         if (isFinalized) {
-          notify.error("This quotation can no longer be edited");
+          notify.error("Finalized quotations cannot be edited");
           return;
         }
         const payload = sanitizeUpdatePayload(withStatus);
         const res = await updateQuotation({
           id: quotation.id,
-          data: { ...payload, status: "DRAFT" },
+          data: { ...payload, status },
         }).unwrap();
-        notify.success(res.message || "Draft updated");
+        notify.success(
+          res.message ||
+            (status === "FINALIZED" ? "Quotation finalized" : "Draft updated"),
+        );
         onSuccess?.(res.data);
       }
     } catch (err: unknown) {
