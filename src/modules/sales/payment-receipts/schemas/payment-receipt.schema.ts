@@ -8,7 +8,7 @@ export const LIMITS = {
   INVOICE_ID: 64,
   REF: 120,
   NOTES: 500,
-  REMARKS: 200,
+  REMARKS: 500,
 } as const;
 
 /**
@@ -99,7 +99,7 @@ const requiredStr = (max: number, msg: string) =>
 export const paymentReceiptFormSchema = z
   .object({
     receiptDate: z
-      .string({ required_error: "Receipt date is required" })
+      .string()
       .min(1, "Receipt date is required"),
     financialYear: str(LIMITS.FY),
 
@@ -119,7 +119,7 @@ export const paymentReceiptFormSchema = z
         return Number.isFinite(n) ? n : 0;
       },
       z
-        .number({ invalid_type_error: "Amount is required" })
+        .number()
         .positive("Amount must be greater than 0")
         .max(10_00_00_000, "Amount exceeds limit"),
     ),

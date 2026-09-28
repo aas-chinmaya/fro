@@ -1,19 +1,3 @@
-
-/** Keep amounts within production limits before API */
-function clampMoney(n: number, max = 10_00_00_000) {
-  const v = toNum(n);
-  if (v < 0) return 0;
-  if (v > max) return max;
-  return round2(v);
-}
-
-function clampQty(n: number) {
-  const v = toNum(n);
-  if (v < 0) return 0;
-  if (v > 1_00_000) return 1_00_000;
-  return v;
-}
-
 import type {
   Quotation,
   QuotationCreatePayload,
@@ -34,45 +18,75 @@ function toNum(v: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Keep amounts within production limits before API */
+function clampMoney(n: number, max = 10_00_00_000) {
+  const v = toNum(n);
+  if (v < 0) return 0;
+  if (v > max) return max;
+  return round2(v);
+}
+
+function clampQty(n: number) {
+  const v = toNum(n);
+  if (v < 0) return 0;
+  if (v > 1_00_000) return 1_00_000;
+  return v;
+}
+
 /** Strip HTML tags, scripts, event handlers, and control chars from free-text fields */
 export function sanitizePlainText(raw: unknown, maxLen = 1000): string {
   if (raw == null) return "";
+
   let s = String(raw);
-  // Strip HTML tags and common entities
+
   s = s.replace(/<[^>]*>/g, " ");
   s = s.replace(/&lt;/gi, " ").replace(/&gt;/gi, " ").replace(/&quot;/gi, '"');
-  // Neutralize dangerous protocols / handlers
+
   s = s.replace(/javascript\s*:/gi, "");
   s = s.replace(/vbscript\s*:/gi, "");
   s = s.replace(/data\s*:\s*text\/html/gi, "");
   s = s.replace(/on\w+\s*=/gi, "");
-  // Strip raw URLs / links
+
   s = s.replace(/https?:\/\/[^\s]+/gi, "");
   s = s.replace(/www\.[^\s]+/gi, "");
   s = s.replace(/ftp:\/\/[^\s]+/gi, "");
-  // Control chars
+
   s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
-  // Collapse whitespace
   s = s.replace(/\s+/g, " ").trim();
-  if (maxLen > 0 && s.length > maxLen) s = s.slice(0, maxLen);
+
+  if (maxLen > 0 && s.length > maxLen) {
+    s = s.slice(0, maxLen);
+  }
+
   return s;
 }
 
 /** Keep safe rich-text HTML; limit by plain-text length (maxChars). */
 export function sanitizeRichText(raw: unknown, maxPlain = 1000): string {
   let html = String(raw ?? "");
+
   html = html
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(
+      /\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,
+      "",
+    )
     .replace(/(javascript|vbscript)\s*:/gi, "");
-  const plain = html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
-  if (plain.length <= maxPlain) return html.trim();
-  // Truncate by walking plain length is complex for HTML — store as-is if over; schema blocks submit
+
+  const plain = html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (plain.length <= maxPlain) {
+    return html.trim();
+  }
+
   return html.trim();
 }
-
 
 /** Ensure API gets full ISO datetime (date-only inputs → start/end of day) */
 export function toIsoDateTime(
@@ -80,31 +94,43 @@ export function toIsoDateTime(
   endOfDay = false,
 ): string {
   if (!value) return new Date().toISOString();
+
   const raw = String(value).trim();
 
   if (/T\d{2}:\d{2}/.test(raw)) {
     const d = new Date(raw);
-    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+
+    return Number.isNaN(d.getTime())
+      ? new Date().toISOString()
+      : d.toISOString();
   }
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const [y, m, day] = raw.split("-").map(Number);
+
     const d = endOfDay
       ? new Date(y, m - 1, day, 23, 59, 59, 999)
       : new Date(y, m - 1, day, 0, 0, 0, 0);
+
     return d.toISOString();
   }
 
   const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+
+  return Number.isNaN(d.getTime())
+    ? new Date().toISOString()
+    : d.toISOString();
 }
 
 /** Prefer price, fall back to rate */
 export function getUnitPrice(item: {
-  price?: number | null;
-  rate?: number | null;
+  price?: number | string | null;
+  rate?: number | string | null;
 }) {
-  if (item.price != null && item.price !== undefined) return toNum(item.price);
+  if (item.price != null) {
+    return toNum(item.price);
+  }
+
   return toNum(item.rate);
 }
 
@@ -131,19 +157,20 @@ export interface LineCalcResult {
  */
 export function calcLine(
   item: {
-    quantity?: number | null;
-    price?: number | null;
-    rate?: number | null;
-    discount?: number | null;
+    quantity?: number | string | null;
+    price?: number | string | null;
+    rate?: number | string | null;
+    discount?: number | string | null;
     discountType?: DiscountType | null;
-    taxRate?: number | null;
+    taxRate?: number | string | null;
   },
   taxType: TaxType = "INTRA_STATE",
 ): LineCalcResult {
   const qty = toNum(item.quantity);
   const unitPrice = getUnitPrice(item);
   const discountVal = toNum(item.discount);
-  const discountType: DiscountType = item.discountType ?? "PERCENTAGE";
+  const discountType: DiscountType =
+    item.discountType ?? "PERCENTAGE";
   const taxRate = toNum(item.taxRate);
 
   const gross = round2(qty * unitPrice);
@@ -152,7 +179,10 @@ export function calcLine(
     discountType === "PERCENTAGE"
       ? (gross * discountVal) / 100
       : discountVal;
-  discountAmount = round2(Math.min(Math.max(discountAmount, 0), gross));
+
+  discountAmount = round2(
+    Math.min(Math.max(discountAmount, 0), gross),
+  );
 
   const taxable = round2(gross - discountAmount);
   const taxAmount = round2((taxable * taxRate) / 100);
@@ -170,6 +200,7 @@ export function calcLine(
   } else {
     cgstRate = round2(taxRate / 2);
     sgstRate = round2(taxRate - cgstRate);
+
     cgstAmount = round2(taxAmount / 2);
     sgstAmount = round2(taxAmount - cgstAmount);
   }
@@ -223,15 +254,24 @@ export function resolveTaxType(
 ): TaxType {
   const biz = (businessStateCode || "").trim();
   const pos = (placeOfSupplyCode || "").trim();
-  if (!biz || !pos) return "INTRA_STATE";
+
+  if (!biz || !pos) {
+    return "INTRA_STATE";
+  }
+
   return biz === pos ? "INTRA_STATE" : "INTER_STATE";
 }
 
 export function calculateQuotationTotals(
-  items: QuotationFormValues["items"] | QuotationItem[] | undefined | null,
+  items:
+    | QuotationFormValues["items"]
+    | QuotationItem[]
+    | undefined
+    | null,
   taxType: TaxType | null | undefined = "INTRA_STATE",
 ): CalculatedTotals {
-  const effectiveTaxType: TaxType = taxType ?? "INTRA_STATE";
+  const effectiveTaxType: TaxType =
+    taxType ?? "INTRA_STATE";
 
   let totalQuantity = 0;
   let taxableAmount = 0;
@@ -244,6 +284,7 @@ export function calculateQuotationTotals(
 
   const calculatedItems = list.map((item) => {
     const line = calcLine(item, effectiveTaxType);
+
     totalQuantity += toNum(item.quantity);
     taxableAmount += line.taxable;
     discountAmount += line.discountAmount;
@@ -272,7 +313,10 @@ export function calculateQuotationTotals(
   sgstAmount = round2(sgstAmount);
   igstAmount = round2(igstAmount);
 
-  const totalTax = round2(cgstAmount + sgstAmount + igstAmount);
+  const totalTax = round2(
+    cgstAmount + sgstAmount + igstAmount,
+  );
+
   const rawGrand = taxableAmount + totalTax;
   const grandTotal = Math.round(rawGrand);
   const roundOffAmount = round2(grandTotal - rawGrand);
@@ -318,17 +362,24 @@ export function emptyLineItem(): QuotationFormValues["items"][number] {
   };
 }
 
-export function resolveFinancialYear(dateStr?: string | null): string {
-  // Prefer YYYY-MM-DD parts so timezone does not shift the calendar day
+export function resolveFinancialYear(
+  dateStr?: string | null,
+): string {
   let y: number;
-  let m: number; // 1–12
+  let m: number;
+
   const raw = (dateStr || "").trim();
-  const mDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  const mDate = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})/,
+  );
+
   if (mDate) {
     y = Number(mDate[1]);
     m = Number(mDate[2]);
   } else {
     const d = raw ? new Date(raw) : new Date();
+
     if (Number.isNaN(d.getTime())) {
       const now = new Date();
       y = now.getFullYear();
@@ -338,20 +389,21 @@ export function resolveFinancialYear(dateStr?: string | null): string {
       m = d.getMonth() + 1;
     }
   }
-  // Indian FY: Apr (04) – Mar (03)
-  // e.g. 2025-04-01 → 2025-26 | 2026-03-31 → 2025-26 | 2026-04-01 → 2026-27
+
   if (m >= 4) {
     return `${y}-${String(y + 1).slice(-2)}`;
   }
+
   return `${y - 1}-${String(y).slice(-2)}`;
 }
 
 export function getDefaultQuotationValues(): QuotationFormValues {
   return {
-  
     quotationDate: new Date().toISOString().slice(0, 10),
     validUntil: "",
-    financialYear: resolveFinancialYear(new Date().toISOString()),
+    financialYear: resolveFinancialYear(
+      new Date().toISOString(),
+    ),
 
     businessName: "",
     businessLegalName: null,
@@ -366,7 +418,6 @@ export function getDefaultQuotationValues(): QuotationFormValues {
     businessStateCode: null,
     businessPincode: null,
     businessCountry: "India",
-
 
     prospectName: "",
     prospectCompanyName: null,
@@ -409,9 +460,10 @@ export function getDefaultQuotationValues(): QuotationFormValues {
   } as QuotationFormValues;
 }
 
-export function mapQuotationToFormValues(q: Quotation): QuotationFormValues {
+export function mapQuotationToFormValues(
+  q: Quotation,
+): QuotationFormValues {
   return {
-   
     quotationDate: q.quotationDate?.slice(0, 10) ?? "",
     validUntil: q.validUntil?.slice(0, 10) ?? "",
     financialYear: resolveFinancialYear(q.quotationDate),
@@ -422,32 +474,41 @@ export function mapQuotationToFormValues(q: Quotation): QuotationFormValues {
     businessPAN: q.businessPAN ?? null,
     businessPhone: q.businessPhone ?? null,
     businessEmail: q.businessEmail ?? null,
-    businessAddressLine1: q.businessAddressLine1 ?? null,
-    businessAddressLine2: q.businessAddressLine2 ?? null,
+    businessAddressLine1:
+      q.businessAddressLine1 ?? null,
+    businessAddressLine2:
+      q.businessAddressLine2 ?? null,
     businessCity: q.businessCity ?? null,
     businessState: q.businessState ?? null,
-    businessStateCode: q.businessStateCode ?? null,
+    businessStateCode:
+      q.businessStateCode ?? null,
     businessPincode: q.businessPincode ?? null,
-    businessCountry: q.businessCountry ?? "India",
-
-
+    businessCountry:
+      q.businessCountry ?? "India",
 
     prospectName: q.prospectName ?? "",
-    prospectCompanyName: q.prospectCompanyName ?? null,
+    prospectCompanyName:
+      q.prospectCompanyName ?? null,
     prospectGSTIN: q.prospectGSTIN ?? null,
     prospectPAN: q.prospectPAN ?? null,
     prospectPhone: q.prospectPhone ?? "",
     prospectEmail: q.prospectEmail ?? null,
-    prospectAddressLine1: q.prospectAddressLine1 ?? "",
-    prospectAddressLine2: q.prospectAddressLine2 ?? null,
+    prospectAddressLine1:
+      q.prospectAddressLine1 ?? "",
+    prospectAddressLine2:
+      q.prospectAddressLine2 ?? null,
     prospectCity: q.prospectCity ?? "",
     prospectState: q.prospectState ?? "",
-    prospectStateCode: q.prospectStateCode ?? null,
-    prospectPincode: q.prospectPincode ?? "",
-    prospectCountry: q.prospectCountry ?? "India",
+    prospectStateCode:
+      q.prospectStateCode ?? null,
+    prospectPincode:
+      q.prospectPincode ?? "",
+    prospectCountry:
+      q.prospectCountry ?? "India",
 
     placeOfSupply: q.placeOfSupply ?? "",
-    placeOfSupplyCode: q.placeOfSupplyCode ?? null,
+    placeOfSupplyCode:
+      q.placeOfSupplyCode ?? null,
     taxType: q.taxType ?? "INTRA_STATE",
     reverseCharge: q.reverseCharge ?? false,
     isExport: q.isExport ?? false,
@@ -459,18 +520,24 @@ export function mapQuotationToFormValues(q: Quotation): QuotationFormValues {
       q.items?.length > 0
         ? q.items.map((item) => {
             const unitPrice = getUnitPrice(item);
+
             return {
               id: item.id,
               itemId: item.itemId ?? null,
               itemName: item.itemName ?? "",
-              description: item.description ?? null,
-              hsnSacCode: item.hsnSacCode ?? (item as { hsnSac?: string }).hsnSac ?? null,
+              description:
+                item.description ?? null,
+              hsnSacCode:
+                item.hsnSacCode ??
+                (item as { hsnSac?: string }).hsnSac ??
+                null,
               quantity: item.quantity ?? 1,
               unit: item.unit ?? "PCS",
               rate: unitPrice,
               price: unitPrice,
               discount: item.discount ?? 0,
-              discountType: item.discountType ?? "PERCENTAGE",
+              discountType:
+                item.discountType ?? "PERCENTAGE",
               taxRate: item.taxRate ?? 0,
               taxAmount: item.taxAmount ?? 0,
               cgstRate: item.cgstRate ?? 0,
@@ -479,9 +546,11 @@ export function mapQuotationToFormValues(q: Quotation): QuotationFormValues {
               sgstAmount: item.sgstAmount ?? 0,
               igstRate: item.igstRate ?? 0,
               igstAmount: item.igstAmount ?? 0,
-              amount: item.amount ?? item.total ?? 0,
-              total: item.total ?? item.amount ?? 0,
-              stockAvailable: null, // quotation never binds stock
+              amount:
+                item.amount ?? item.total ?? 0,
+              total:
+                item.total ?? item.amount ?? 0,
+              stockAvailable: null,
             };
           })
         : [emptyLineItem()],
@@ -498,52 +567,72 @@ export function mapQuotationToFormValues(q: Quotation): QuotationFormValues {
     grandTotal: q.grandTotal ?? 0,
 
     notes: q.notes ?? null,
-    termsAndConditions: q.termsAndConditions ?? "",
+    termsAndConditions:
+      q.termsAndConditions ?? "",
   } as QuotationFormValues;
 }
 
-export function getSessionFormDefaults(session: {
-  user: { id: string } | null;
-  business: {
-    id: string;
-    name: string;
-    legalName?: string | null;
-    gstin?: string | null;
-    pan?: string | null;
-    phone?: string | null;
-    email?: string | null;
-    addressLine1?: string | null;
-    addressLine2?: string | null;
-    city?: string | null;
-    state?: string | null;
-    stateCode?: string | null;
-    pincode?: string | null;
-    country: string;
-  } | null;
-} | null): Partial<QuotationFormValues> {
+export function getSessionFormDefaults(
+  session: {
+    user: { id: string } | null;
+    business: {
+      id: string;
+      name: string;
+      legalName?: string | null;
+      gstin?: string | null;
+      pan?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      addressLine1?: string | null;
+      addressLine2?: string | null;
+      city?: string | null;
+      state?: string | null;
+      stateCode?: string | null;
+      pincode?: string | null;
+      country: string;
+    } | null;
+  } | null,
+): Partial<QuotationFormValues> {
   if (!session) return {};
 
-  const { business, user } = session;
+  const { business } = session;
+
   const stateCode =
-    business?.stateCode || getStateCode(business?.state || undefined) || null;
+    business?.stateCode ||
+    getStateCode(business?.state || undefined) ||
+    null;
 
   return {
     businessName: business?.name ?? "",
-    businessLegalName: business?.legalName ?? null,
-    businessGSTIN: business?.gstin ?? null,
-    businessPAN: business?.pan ?? null,
-    businessPhone: business?.phone ?? null,
-    businessEmail: business?.email ?? null,
-    businessAddressLine1: business?.addressLine1 ?? null,
-    businessAddressLine2: business?.addressLine2 ?? null,
-    businessCity: business?.city ?? null,
-    businessState: business?.state ?? null,
+    businessLegalName:
+      business?.legalName ?? null,
+    businessGSTIN:
+      business?.gstin ?? null,
+    businessPAN:
+      business?.pan ?? null,
+    businessPhone:
+      business?.phone ?? null,
+    businessEmail:
+      business?.email ?? null,
+    businessAddressLine1:
+      business?.addressLine1 ?? null,
+    businessAddressLine2:
+      business?.addressLine2 ?? null,
+    businessCity:
+      business?.city ?? null,
+    businessState:
+      business?.state ?? null,
     businessStateCode: stateCode,
-    businessPincode: business?.pincode ?? null,
-    businessCountry: business?.country ?? "India",
-
-
-    businessLogo: (business as { logo?: string | null } | null | undefined)?.logo ?? null,
+    businessPincode:
+      business?.pincode ?? null,
+    businessCountry:
+      business?.country ?? "India",
+    businessLogo:
+      (
+        business as {
+          logo?: string | null;
+        } | null | undefined
+      )?.logo ?? null,
   };
 }
 
@@ -553,13 +642,20 @@ export function applyTotalsToValues(
 ): QuotationFormValues {
   const taxType =
     values.taxType ??
-    resolveTaxType(values.businessStateCode, values.placeOfSupplyCode);
+    resolveTaxType(
+      values.businessStateCode,
+      values.placeOfSupplyCode,
+    );
 
-  const totals = calculateQuotationTotals(values.items, taxType);
+  const totals = calculateQuotationTotals(
+    values.items,
+    taxType,
+  );
 
   const items = values.items.map((item, i) => {
     const line = totals.items[i];
     const unitPrice = getUnitPrice(item);
+
     return {
       ...item,
       rate: unitPrice,
@@ -593,246 +689,370 @@ export function applyTotalsToValues(
   };
 }
 
-
-/** Indian FY: Apr–Mar → "2025-26" */
 export function sanitizeCreatePayload(
   values: QuotationFormValues,
 ): QuotationCreatePayload {
   const withTotals = applyTotalsToValues(values);
   const rest = withTotals;
 
+  return {
+    quotationDate: toIsoDateTime(
+      rest.quotationDate,
+      false,
+    ),
 
-// tenantId / branchId / createdBy omitted — backend uses auth
-return {
-  quotationDate: toIsoDateTime(
-    rest.quotationDate,
-    false,
-  ),
+    validUntil: toIsoDateTime(
+      rest.validUntil,
+      true,
+    ),
 
-  validUntil: toIsoDateTime(
-    rest.validUntil,
-    true,
-  ),
+    financialYear:
+      resolveFinancialYear(rest.quotationDate),
 
-  financialYear: resolveFinancialYear(rest.quotationDate),
+    businessName: rest.businessName,
+    businessLegalName:
+      rest.businessLegalName || null,
+    businessGSTIN:
+      rest.businessGSTIN || null,
+    businessPAN:
+      rest.businessPAN || null,
+    businessPhone:
+      rest.businessPhone || null,
+    businessEmail:
+      rest.businessEmail || null,
+    businessAddressLine1:
+      rest.businessAddressLine1 || null,
+    businessAddressLine2:
+      rest.businessAddressLine2 || null,
+    businessCity:
+      rest.businessCity || null,
+    businessState:
+      rest.businessState || null,
+    businessStateCode:
+      rest.businessStateCode || null,
+    businessPincode:
+      rest.businessPincode || null,
+    businessCountry:
+      rest.businessCountry || "India",
 
-  businessName: rest.businessName,
-  businessLegalName: rest.businessLegalName || null,
-  businessGSTIN: rest.businessGSTIN || null,
-  businessPAN: rest.businessPAN || null,
-  businessPhone: rest.businessPhone || null,
-  businessEmail: rest.businessEmail || null,
-  businessAddressLine1:
-    rest.businessAddressLine1 || null,
-  businessAddressLine2:
-    rest.businessAddressLine2 || null,
-  businessCity: rest.businessCity || null,
-  businessState: rest.businessState || null,
-  businessStateCode:
-    rest.businessStateCode || null,
-  businessPincode:
-    rest.businessPincode || null,
-  businessCountry:
-    rest.businessCountry || "India",
+    businessLogo:
+      rest.businessLogo || null,
 
+    prospectName: rest.prospectName,
+    prospectCompanyName:
+      rest.prospectCompanyName || null,
+    prospectGSTIN:
+      rest.prospectGSTIN || null,
+    prospectPAN:
+      rest.prospectPAN || null,
+    prospectPhone:
+      rest.prospectPhone || null,
+    prospectEmail:
+      rest.prospectEmail || null,
+    prospectAddressLine1:
+      rest.prospectAddressLine1 || null,
+    prospectAddressLine2:
+      rest.prospectAddressLine2 || null,
+    prospectCity:
+      rest.prospectCity || null,
+    prospectState:
+      rest.prospectState || null,
+    prospectStateCode:
+      rest.prospectStateCode || null,
+    prospectPincode:
+      rest.prospectPincode || null,
+    prospectCountry:
+      rest.prospectCountry || "India",
 
+    placeOfSupply:
+      rest.placeOfSupply || null,
+    placeOfSupplyCode:
+      rest.placeOfSupplyCode || null,
 
-  businessLogo: rest.businessLogo || null,
+    taxType:
+      rest.taxType || "INTRA_STATE",
+    reverseCharge:
+      rest.reverseCharge ?? false,
+    isExport:
+      rest.isExport ?? false,
+    isSEZ:
+      rest.isSEZ ?? false,
 
+    currency:
+      rest.currency || "INR",
+    exchangeRate:
+      rest.exchangeRate ?? null,
 
-  prospectName: rest.prospectName,
-  prospectCompanyName:
-    rest.prospectCompanyName || null,
-  prospectGSTIN:
-    rest.prospectGSTIN || null,
-  prospectPAN:
-    rest.prospectPAN || null,
-  prospectPhone:
-    rest.prospectPhone || null,
-  prospectEmail:
-    rest.prospectEmail || null,
-  prospectAddressLine1:
-    rest.prospectAddressLine1 || null,
-  prospectAddressLine2:
-    rest.prospectAddressLine2 || null,
-  prospectCity:
-    rest.prospectCity || null,
-  prospectState:
-    rest.prospectState || null,
-  prospectStateCode:
-    rest.prospectStateCode || null,
-  prospectPincode:
-    rest.prospectPincode || null,
-  prospectCountry:
-    rest.prospectCountry || "India",
+    items: rest.items.map((item) => {
+      const unitPrice = getUnitPrice(item);
 
-  placeOfSupply: rest.placeOfSupply || null,
-  placeOfSupplyCode:
-    rest.placeOfSupplyCode || null,
+      return {
+        id: item.id,
+        itemId: item.itemId || null,
+        itemName: sanitizePlainText(
+          item.itemName,
+          200,
+        ),
+        description: (() => {
+          const d = sanitizePlainText(
+            item.description,
+            1000,
+          );
 
-  taxType: rest.taxType || "INTRA_STATE",
-  reverseCharge: rest.reverseCharge ?? false,
-  isExport: rest.isExport ?? false,
-  isSEZ: rest.isSEZ ?? false,
+          return d || null;
+        })(),
+        hsnSacCode: (() => {
+          const h = sanitizePlainText(
+            item.hsnSacCode ??
+              (item as { hsnSac?: string }).hsnSac,
+            12,
+          ).replace(/[^0-9A-Za-z]/g, "");
 
-  currency: rest.currency || "INR",
-  exchangeRate: rest.exchangeRate ?? null,
+          return h || null;
+        })(),
+        quantity: clampQty(item.quantity),
+        unit: item.unit || null,
+        rate: clampMoney(unitPrice),
+        price: clampMoney(unitPrice),
+        discount: clampMoney(item.discount),
+        discountType:
+          item.discountType || "PERCENTAGE",
+        taxRate: toNum(item.taxRate),
+        taxAmount: toNum(item.taxAmount),
+        cgstRate: toNum(item.cgstRate),
+        cgstAmount: toNum(item.cgstAmount),
+        sgstRate: toNum(item.sgstRate),
+        sgstAmount: toNum(item.sgstAmount),
+        igstRate: toNum(item.igstRate),
+        igstAmount: toNum(item.igstAmount),
+        amount: toNum(
+          item.amount ?? item.total,
+        ),
+        total: toNum(
+          item.total ?? item.amount,
+        ),
+      };
+    }),
 
-  items: rest.items.map((item) => {
-    const unitPrice = getUnitPrice(item);
+    totalItems: rest.totalItems,
+    totalQuantity: rest.totalQuantity,
+    taxableAmount: rest.taxableAmount,
+    discountAmount: rest.discountAmount,
+    cgstAmount: rest.cgstAmount,
+    sgstAmount: rest.sgstAmount,
+    igstAmount: rest.igstAmount,
+    cessAmount: rest.cessAmount,
+    roundOffAmount:
+      rest.roundOffAmount,
+    grandTotal: rest.grandTotal,
 
-    return {
-      id: item.id,
-      itemId: item.itemId || null,
-      itemName: sanitizePlainText(item.itemName, 200),
-      description: (() => {
-        const d = sanitizePlainText(item.description, 1000);
-        return d || null;
-      })(),
-      hsnSacCode: (() => {
-        const h = sanitizePlainText(item.hsnSacCode ?? (item as { hsnSac?: string }).hsnSac, 12).replace(/[^0-9A-Za-z]/g, "");
-        return h || null;
-      })(),
-      quantity: clampQty(item.quantity),
-      unit: item.unit || null,
-      rate: clampMoney(unitPrice),
-      price: clampMoney(unitPrice),
-      discount: clampMoney(item.discount),
+    notes: (() => {
+      const n = sanitizePlainText(
+        rest.notes,
+        10000,
+      );
 
-      discountType:
-        item.discountType || "PERCENTAGE",
-      taxRate: toNum(item.taxRate),
-      taxAmount: toNum(item.taxAmount),
-      cgstRate: toNum(item.cgstRate),
-      cgstAmount: toNum(item.cgstAmount),
-      sgstRate: toNum(item.sgstRate),
-      sgstAmount: toNum(item.sgstAmount),
-      igstRate: toNum(item.igstRate),
-      igstAmount: toNum(item.igstAmount),
-      amount: toNum(
-        item.amount ?? item.total,
-      ),
-      total: toNum(
-        item.total ?? item.amount,
-      ),
-    };
-  }),
+      return n || null;
+    })(),
 
-  totalItems: rest.totalItems,
-  totalQuantity: rest.totalQuantity,
-  taxableAmount: rest.taxableAmount,
-  discountAmount: rest.discountAmount,
-  cgstAmount: rest.cgstAmount,
-  sgstAmount: rest.sgstAmount,
-  igstAmount: rest.igstAmount,
-  cessAmount: rest.cessAmount,
-  roundOffAmount: rest.roundOffAmount,
-  grandTotal: rest.grandTotal,
+    termsAndConditions: (() => {
+      const t = sanitizeRichText(
+        rest.termsAndConditions,
+        1000,
+      );
 
-  notes: (() => {
-    const n = sanitizePlainText(rest.notes, 10000);
-    return n || null;
-  })(),
-  termsAndConditions: (() => {
-    // Preserve rich-text HTML (e.g. <p>…</p>); plain-text max enforced by schema
-    const t = sanitizeRichText(rest.termsAndConditions, 1000);
-    return t || null;
-  })(),
-  status: (rest.status as import("../types/quotation.types").QuotationStatus | undefined) ?? "DRAFT",
-};
+      return t || null;
+    })(),
+
+    status:
+      (
+        rest.status as
+          | import("../types/quotation.types").QuotationStatus
+          | undefined
+      ) ?? "DRAFT",
+  };
 }
 
 export function sanitizeUpdatePayload(
   values: QuotationFormValues,
 ): QuotationUpdatePayload {
-  // tenantId / branchId / createdBy / updatedBy never sent — backend auth
   return sanitizeCreatePayload(values) as QuotationUpdatePayload;
 }
 
 /** Format INR for display */
 export function formatINR(value: number) {
-  return Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return Number(value || 0).toLocaleString(
+    "en-IN",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    },
+  );
 }
-
 
 /** Indian numbering amount-in-words (Rupees) */
 const ONES = [
-  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-  "Seventeen", "Eighteen", "Nineteen",
+  "",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+  "Thirteen",
+  "Fourteen",
+  "Fifteen",
+  "Sixteen",
+  "Seventeen",
+  "Eighteen",
+  "Nineteen",
 ];
+
 const TENS = [
-  "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
+  "",
+  "",
+  "Twenty",
+  "Thirty",
+  "Forty",
+  "Fifty",
+  "Sixty",
+  "Seventy",
+  "Eighty",
+  "Ninety",
 ];
 
 function twoDigits(n: number): string {
   if (n < 20) return ONES[n];
+
   const t = Math.floor(n / 10);
   const o = n % 10;
+
   return `${TENS[t]}${o ? ` ${ONES[o]}` : ""}`.trim();
 }
 
 function threeDigits(n: number): string {
   if (n === 0) return "";
+
   const h = Math.floor(n / 100);
   const r = n % 100;
+
   const head = h ? `${ONES[h]} Hundred` : "";
   const tail = r ? twoDigits(r) : "";
-  return [head, tail].filter(Boolean).join(" ");
+
+  return [head, tail]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function amountInWords(amount: number): string {
-  const n = Math.round(Math.abs(Number(amount) || 0));
-  if (n === 0) return "Zero Rupees Only";
+  const n = Math.round(
+    Math.abs(Number(amount) || 0),
+  );
+
+  if (n === 0) {
+    return "Zero Rupees Only";
+  }
 
   const crore = Math.floor(n / 10000000);
-  const lakh = Math.floor((n % 10000000) / 100000);
-  const thousand = Math.floor((n % 100000) / 1000);
+  const lakh = Math.floor(
+    (n % 10000000) / 100000,
+  );
+  const thousand = Math.floor(
+    (n % 100000) / 1000,
+  );
   const hundred = n % 1000;
 
   const parts: string[] = [];
-  if (crore) parts.push(`${threeDigits(crore)} Crore`);
-  if (lakh) parts.push(`${threeDigits(lakh)} Lakh`);
-  if (thousand) parts.push(`${threeDigits(thousand)} Thousand`);
-  if (hundred) parts.push(threeDigits(hundred));
+
+  if (crore) {
+    parts.push(`${threeDigits(crore)} Crore`);
+  }
+
+  if (lakh) {
+    parts.push(`${threeDigits(lakh)} Lakh`);
+  }
+
+  if (thousand) {
+    parts.push(
+      `${threeDigits(thousand)} Thousand`,
+    );
+  }
+
+  if (hundred) {
+    parts.push(threeDigits(hundred));
+  }
 
   return `${parts.join(" ")} Rupees Only`;
 }
-
 
 /** List filter: period key → fromDate / toDate (YYYY-MM-DD) */
 export function quotationDateRange(
   period: string,
 ): { fromDate?: string; toDate?: string } {
   if (period === "all") return {};
+
   const now = new Date();
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+  const fmt = (d: Date) =>
+    d.toISOString().split("T")[0];
+
   switch (period) {
     case "today":
-      return { fromDate: fmt(now), toDate: fmt(now) };
+      return {
+        fromDate: fmt(now),
+        toDate: fmt(now),
+      };
+
     case "7d": {
       const from = new Date(now);
       from.setDate(now.getDate() - 6);
-      return { fromDate: fmt(from), toDate: fmt(now) };
+
+      return {
+        fromDate: fmt(from),
+        toDate: fmt(now),
+      };
     }
+
     case "30d": {
       const from = new Date(now);
       from.setDate(now.getDate() - 29);
-      return { fromDate: fmt(from), toDate: fmt(now) };
+
+      return {
+        fromDate: fmt(from),
+        toDate: fmt(now),
+      };
     }
+
     case "month":
       return {
-        fromDate: fmt(new Date(now.getFullYear(), now.getMonth(), 1)),
+        fromDate: fmt(
+          new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            1,
+          ),
+        ),
         toDate: fmt(now),
       };
+
     case "year":
       return {
-        fromDate: fmt(new Date(now.getFullYear(), 0, 1)),
+        fromDate: fmt(
+          new Date(
+            now.getFullYear(),
+            0,
+            1,
+          ),
+        ),
         toDate: fmt(now),
       };
+
     default:
       return {};
   }
