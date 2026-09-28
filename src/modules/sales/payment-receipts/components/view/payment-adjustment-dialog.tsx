@@ -16,13 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { notify } from "@/lib/toast";
 
+import { useGetInvoicesQuery } from "@/modules/sales/invoices/api/invoice.api";
 import { useCreatePaymentAdjustmentMutation } from "../../api/payment-adjustment.api";
 import type {
   PaymentReceipt,
   PaymentAdjustmentPayload,
 } from "../../types/payment-receipt.types";
-
-const REMARKS_MAX = 200;
+import {
+  LIMITS,
+  sanitizeNotesInput,
+  sanitizeLiveText,
+} from "../../schemas/payment-receipt.schema";
 
 interface PaymentAdjustmentDialogProps {
   open: boolean;
@@ -37,39 +41,17 @@ function formatInr(n: number) {
   });
 }
 
-/** Lightweight invoice list for adjust dialog — replace with real hook when available */
-function useInvoiceList() {
-  const [invoices, setInvoices] = useState<
-    Array<{
-      id: string;
-      invoiceNumber?: string;
-      customerName?: string;
-      grandTotal?: number;
-      totalAmount?: number;
-      pendingAmount?: number;
-    }>
-  >([]);
-  const [loading, setLoading] = useState(false);
-
-  const getInvoices = async () => {
-    setLoading(true);
-    try {
-      // Dummy fallback until real invoice list API is wired
-      setInvoices([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { invoices, getInvoices, loading };
-}
-
 export default function PaymentAdjustmentDialog({
   open,
   onOpenChange,
   paymentReceipt,
 }: PaymentAdjustmentDialogProps) {
   const receiptAmount = Number(paymentReceipt.amount) || 0;
+
+  const customerId =
+    paymentReceipt.customerId ||
+    paymentReceipt.customer?.id ||
+    "";
 
   const [invoiceQuery, setInvoiceQuery] = useState("");
   const [invoiceFocused, setInvoiceFocused] = useState(false);
@@ -80,7 +62,43 @@ export default function PaymentAdjustmentDialog({
   const [documentId, setDocumentId] = useState("");
   const [documentNumber, setDocumentNumber] = useState("");
 
-  const { invoices, getInvoices, loading: invoicesLoading } = useInvoiceList();
+  /** Only this customer's invoices — pass customerId to list API */
+  const {
+    data: invoiceResponse,
+    isLoading: invoicesLoading,
+    isFetching: invoicesFetching,
+    refetch: refetchInvoices,
+  } = useGetInvoicesQuery(
+    {
+      page: 1,
+      limit: 100,
+      // Backend filters by customer when provided
+      customerId: customerId || undefined,
+      search: invoiceQuery.trim() || undefined,
+    } as {
+      page: number;
+      limit: number;
+      customerId?: string;
+      search?: string;
+    },
+    { skip: !open || !customerId },
+  );
+
+  const invoices = useMemo(() => {
+    const list = invoiceResponse?.data ?? [];
+    // Client-side safety filter: only this customer
+    if (!customerId) return [];
+    return list.filter((inv) => {
+      const invCustomer =
+        (inv as { customerId?: string; buyerId?: string }).customerId ||
+        (inv as { customerId?: string; buyerId?: string }).buyerId ||
+        "";
+      // If API already filtered, keep all; if row has customerId mismatch, drop
+      if (!invCustomer) return true;
+      return String(invCustomer) === String(customerId);
+    });
+  }, [invoiceResponse?.data, customerId]);
+
   const [createAdjustment, { isLoading: adjustmentLoading }] =
     useCreatePaymentAdjustmentMutation();
 
@@ -95,33 +113,56 @@ export default function PaymentAdjustmentDialog({
 
   useEffect(() => {
     if (open) {
-      void getInvoices();
       resetForm();
+      if (customerId) {
+        void refetchInvoices();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, customerId]);
 
   const matchingInvoices = useMemo(() => {
     const q = (invoiceQuery || "").trim().toLowerCase();
-    const list = invoices ?? [];
-    if (!q) return list;
-    return list.filter(
-      (inv) =>
-        String(inv.id).toLowerCase().includes(q) ||
-        String(inv.invoiceNumber || "").toLowerCase().includes(q) ||
-        String(inv.customerName || "").toLowerCase().includes(q),
-    );
+    if (!q) return invoices;
+    return invoices.filter((inv) => {
+      const num = String(
+        (inv as { invoiceNumber?: string }).invoiceNumber || inv.id || "",
+      ).toLowerCase();
+      const name = String(
+        (inv as { buyerName?: string; customerName?: string }).buyerName ||
+          (inv as { customerName?: string }).customerName ||
+          "",
+      ).toLowerCase();
+      return num.includes(q) || name.includes(q) || String(inv.id).toLowerCase().includes(q);
+    });
   }, [invoiceQuery, invoices]);
 
   const selectInvoice = (inv: (typeof invoices)[number]) => {
-    const pending = Number(inv.pendingAmount ?? 0);
-    if (pending < receiptAmount) {
-      notify.error("This invoice cannot fully settle the cash receipt amount");
+    const pending = Number(
+      (inv as { pendingAmount?: number }).pendingAmount ??
+        (inv as { balanceDue?: number }).balanceDue ??
+        (inv as { grandTotal?: number }).grandTotal ??
+        0,
+    );
+
+    if (pending > 0 && pending < receiptAmount) {
+      notify.error(
+        "This invoice cannot fully settle the cash receipt amount",
+      );
       return;
     }
+
     setDocumentId(String(inv.id));
-    setDocumentNumber(String(inv.invoiceNumber || inv.id));
-    setInvoiceQuery(String(inv.invoiceNumber || inv.id));
+    setDocumentNumber(
+      String(
+        (inv as { invoiceNumber?: string }).invoiceNumber || inv.id,
+      ),
+    );
+    setInvoiceQuery(
+      String(
+        (inv as { invoiceNumber?: string }).invoiceNumber || inv.id,
+      ),
+    );
     setInvoiceFocused(false);
   };
 
@@ -133,6 +174,10 @@ export default function PaymentAdjustmentDialog({
 
   const handleSubmit = async () => {
     try {
+      if (!customerId) {
+        notify.error("Customer is missing on this receipt");
+        return;
+      }
       if (!documentId) {
         notify.error("Please select an invoice");
         return;
@@ -141,16 +186,16 @@ export default function PaymentAdjustmentDialog({
       const payload: PaymentAdjustmentPayload = {
         tenantId: paymentReceipt.tenantId || undefined,
         branchId: paymentReceipt.branchId || undefined,
-        customerId:
-          paymentReceipt.customerId || paymentReceipt.customer?.id || undefined,
-        paymentId: paymentReceipt.paymentId || paymentReceipt.payment?.id || undefined,
+        customerId,
+        paymentId:
+          paymentReceipt.paymentId || paymentReceipt.payment?.id || undefined,
         documentType: "SALES_INVOICE",
         documentId,
         documentNumber,
         amount: receiptAmount,
         adjustmentType,
         adjustmentDate: new Date().toISOString(),
-        remarks: remarks || undefined,
+        remarks: sanitizeNotesInput(remarks, LIMITS.REMARKS) || undefined,
         createdBy: paymentReceipt.createdBy,
       };
 
@@ -159,9 +204,13 @@ export default function PaymentAdjustmentDialog({
       onOpenChange(false);
     } catch (err: unknown) {
       const e = err as { data?: { message?: string }; message?: string };
-      notify.error(e?.data?.message || e?.message || "Failed to create adjustment");
+      notify.error(
+        e?.data?.message || e?.message || "Failed to create adjustment",
+      );
     }
   };
+
+  const loadingInvoices = invoicesLoading || invoicesFetching;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -180,14 +229,28 @@ export default function PaymentAdjustmentDialog({
             <p className="mt-0.5 text-base font-semibold text-slate-900">
               ₹ {formatInr(receiptAmount)}
             </p>
+            {paymentReceipt.customerName ? (
+              <p className="mt-1 truncate text-xs text-slate-500">
+                Customer: {paymentReceipt.customerName}
+              </p>
+            ) : null}
           </div>
 
+          {!customerId ? (
+            <p className="text-xs text-red-500">
+              This receipt has no customer linked. Cannot load invoices.
+            </p>
+          ) : null}
+
+          {/* Invoice — only this customer's */}
           <div className="space-y-1.5">
             <Label className="text-xs">
               Invoice <span className="text-red-500">*</span>
             </Label>
+
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+
               <Input
                 value={invoiceQuery}
                 onFocus={() => setInvoiceFocused(true)}
@@ -196,10 +259,11 @@ export default function PaymentAdjustmentDialog({
                   setInvoiceQuery(e.target.value);
                   setInvoiceFocused(true);
                 }}
-                placeholder="Search invoice…"
+                placeholder="Search this customer’s invoices…"
                 className="h-9 pl-8 pr-7 text-sm"
-                disabled={adjustmentLoading}
+                disabled={adjustmentLoading || !customerId}
               />
+
               {invoiceQuery && !adjustmentLoading ? (
                 <button
                   type="button"
@@ -210,21 +274,28 @@ export default function PaymentAdjustmentDialog({
                 </button>
               ) : null}
 
-              {invoiceFocused ? (
-                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[200px] overflow-y-auto rounded-md border bg-white p-1 shadow-lg">
-                  {invoicesLoading ? (
+              {invoiceFocused && customerId ? (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[220px] overflow-y-auto rounded-md border bg-white p-1 shadow-lg">
+                  {loadingInvoices ? (
                     <div className="flex items-center gap-2 px-2 py-2 text-xs text-slate-500">
                       <Loader2 className="size-3 animate-spin" />
-                      Loading…
+                      Loading invoices…
                     </div>
                   ) : matchingInvoices.length ? (
                     matchingInvoices.map((inv) => {
                       const isSelected = String(documentId) === String(inv.id);
                       const totalAmount = Number(
-                        inv.grandTotal ?? inv.totalAmount ?? 0,
+                        (inv as { grandTotal?: number }).grandTotal ??
+                          (inv as { totalAmount?: number }).totalAmount ??
+                          0,
                       );
-                      const pendingAmount = Number(inv.pendingAmount ?? 0);
-                      const eligible = pendingAmount >= receiptAmount;
+                      const pendingAmount = Number(
+                        (inv as { pendingAmount?: number }).pendingAmount ??
+                          (inv as { balanceDue?: number }).balanceDue ??
+                          totalAmount,
+                      );
+                      const eligible =
+                        pendingAmount <= 0 || pendingAmount >= receiptAmount;
 
                       return (
                         <button
@@ -243,7 +314,8 @@ export default function PaymentAdjustmentDialog({
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-1.5">
                               <span className="truncate font-medium">
-                                {inv.invoiceNumber || inv.id}
+                                {(inv as { invoiceNumber?: string })
+                                  .invoiceNumber || inv.id}
                               </span>
                               <span
                                 className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
@@ -266,7 +338,7 @@ export default function PaymentAdjustmentDialog({
                     })
                   ) : (
                     <div className="px-2 py-3 text-center text-xs text-slate-500">
-                      No invoice found
+                      No invoices found for this customer
                     </div>
                   )}
                 </div>
@@ -274,6 +346,7 @@ export default function PaymentAdjustmentDialog({
             </div>
           </div>
 
+          {/* Type */}
           <div className="space-y-1.5">
             <Label className="text-xs">Type</Label>
             <div className="flex gap-4">
@@ -304,21 +377,30 @@ export default function PaymentAdjustmentDialog({
             </div>
           </div>
 
+          {/* Remarks — typable/pasteable, soft live sanitize */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Remarks</Label>
               <span className="text-[10px] text-slate-400">
-                {remarks.length}/{REMARKS_MAX}
+                {remarks.length}/{LIMITS.REMARKS}
               </span>
             </div>
             <Textarea
-              placeholder="Optional remarks…"
+              placeholder="Optional remarks (plain text)…"
               value={remarks}
               onChange={(e) => {
-                const v = e.target.value;
-                if (v.length <= REMARKS_MAX) setRemarks(v);
+                setRemarks(
+                  sanitizeLiveText(e.target.value, LIMITS.REMARKS, true),
+                );
               }}
-              maxLength={REMARKS_MAX}
+              onPaste={(e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData("text") || "";
+                setRemarks(
+                  sanitizeLiveText(remarks + pasted, LIMITS.REMARKS, true),
+                );
+              }}
+              maxLength={LIMITS.REMARKS}
               rows={2}
               className="resize-none text-sm"
               disabled={adjustmentLoading}
@@ -337,7 +419,7 @@ export default function PaymentAdjustmentDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={adjustmentLoading || !documentId}
+            disabled={adjustmentLoading || !documentId || !customerId}
             className="h-8 min-w-[100px] text-sm"
           >
             {adjustmentLoading ? (

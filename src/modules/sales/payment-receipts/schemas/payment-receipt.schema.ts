@@ -8,13 +8,79 @@ export const LIMITS = {
   INVOICE_ID: 64,
   REF: 120,
   NOTES: 500,
+  REMARKS: 200,
 } as const;
 
+/**
+ * Plain-text only: strips HTML/script/event handlers, control chars.
+ * Single-line fields collapse whitespace.
+ */
 function stripUnsafe(raw: string): string {
-  return String(raw || "")
-    .replace(/[\u0000-\u001F\u007F]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return sanitizePlainText(raw, { multiline: false });
+}
+
+/**
+ * Deep plain-text sanitizer for notes / remarks / free text.
+ * - Removes <script>, <style>, all HTML tags
+ * - Strips javascript: / data: URLs and on* handlers leftover text
+ * - Removes control characters (keeps \n / \t when multiline)
+ * - Enforces max length
+ */
+export function sanitizePlainText(
+  raw: unknown,
+  opts?: { maxLen?: number; multiline?: boolean },
+): string {
+  const maxLen = opts?.maxLen ?? 10_000;
+  const multiline = opts?.multiline ?? false;
+
+  let s = String(raw ?? "");
+
+  // Normalize line endings
+  s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Remove script / style blocks entirely (content too)
+  s = s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "");
+  s = s.replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, "");
+  s = s.replace(/<embed[\s\S]*?>/gi, "");
+
+  // Strip all remaining HTML tags
+  s = s.replace(/<[^>]*>/g, "");
+
+  // Decode a few common entities so they don't reintroduce markup later
+  s = s
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/gi, "&");
+  // Second pass after entity decode
+  s = s.replace(/<[^>]*>/g, "");
+
+  // Strip dangerous URL schemes if pasted as plain text
+  s = s.replace(/javascript\s*:/gi, "");
+  s = s.replace(/vbscript\s*:/gi, "");
+  s = s.replace(/data\s*:\s*text\/html/gi, "");
+
+  // Control chars: keep \n and \t only when multiline
+  if (multiline) {
+    s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+    // Cap consecutive newlines
+    s = s.replace(/\n{3,}/g, "\n\n");
+    // Trim spaces on each line but keep structure
+    s = s
+      .split("\n")
+      .map((line) => line.replace(/[ \t]+/g, " ").trim())
+      .join("\n")
+      .trim();
+  } else {
+    s = s.replace(/[\u0000-\u001F\u007F]/g, "");
+    s = s.replace(/\s+/g, " ").trim();
+  }
+
+  if (s.length > maxLen) s = s.slice(0, maxLen);
+  return s;
 }
 
 /** Always outputs string (never null/undefined) so RHF Resolver matches FormValues */
@@ -57,7 +123,10 @@ export const paymentReceiptFormSchema = z
         .positive("Amount must be greater than 0")
         .max(10_00_00_000, "Amount exceeds limit"),
     ),
-    notes: str(LIMITS.NOTES),
+    notes: z.preprocess(
+      (v) => sanitizePlainText(v, { maxLen: LIMITS.NOTES, multiline: true }),
+      z.string().max(LIMITS.NOTES),
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.paymentMethod !== "CASH") {
@@ -75,8 +144,39 @@ export const paymentReceiptFormSchema = z
 export type PaymentReceiptFormSchema = z.infer<typeof paymentReceiptFormSchema>;
 
 export function sanitizeFieldInput(raw: string, maxLen: number): string {
-  return stripUnsafe(raw).slice(0, maxLen);
+  return sanitizePlainText(raw, { maxLen, multiline: false });
 }
+
+/** Notes / remarks — multiline plain text, length-capped */
+export function sanitizeNotesInput(raw: string, maxLen = LIMITS.NOTES): string {
+  return sanitizePlainText(raw, { maxLen, multiline: true });
+}
+
+/**
+ * Live input helper — keeps typing/paste smooth.
+ * Only strips tags + control chars; does NOT collapse spaces mid-typing.
+ * Full sanitizePlainText still runs on submit / schema.
+ */
+export function sanitizeLiveText(
+  raw: string,
+  maxLen: number,
+  multiline = false,
+): string {
+  let s = String(raw ?? "");
+  s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  s = s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<[^>]*>/g, "");
+  s = s.replace(/javascript\s*:/gi, "");
+  if (multiline) {
+    s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+  } else {
+    s = s.replace(/[\u0000-\u001F\u007F]/g, "");
+  }
+  if (s.length > maxLen) s = s.slice(0, maxLen);
+  return s;
+}
+
 
 /** YYYY-MM-DD (or any parseable) → full ISO datetime */
 export function toIsoReceiptDate(dateStr: string): string {

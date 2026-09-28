@@ -40,6 +40,8 @@ import {
   LIMITS,
   paymentReceiptFormSchema,
   sanitizeFieldInput,
+  sanitizeNotesInput,
+  sanitizeLiveText,
   toIsoReceiptDate,
   computeFinancialYear,
 } from "../../schemas/payment-receipt.schema";
@@ -225,7 +227,8 @@ export default function PaymentReceiptForm({
     ) {
       payload.transactionReference = values.transactionReference.trim();
     }
-    if (values.notes?.trim()) payload.notes = values.notes.trim();
+    const cleanNotes = sanitizeNotesInput(values.notes || "");
+    if (cleanNotes) payload.notes = cleanNotes;
     return payload;
   };
 
@@ -450,18 +453,38 @@ export default function PaymentReceiptForm({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="notes">Notes</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="notes">Notes</Label>
+              <span className="text-[10px] text-slate-400">
+                {(useWatch({ control, name: "notes" }) || "").length}/
+                {LIMITS.NOTES}
+              </span>
+            </div>
             <Textarea
               id="notes"
               rows={3}
+              maxLength={LIMITS.NOTES}
               className="resize-none rounded-md"
-              {...register("notes")}
-              onChange={(e) =>
-                onSafeChange(e, LIMITS.NOTES, (v) =>
-                  setValue("notes", v, { shouldDirty: true }),
-                )
-              }
+              value={useWatch({ control, name: "notes" }) || ""}
               disabled={busy}
+              placeholder="Optional notes (plain text only)"
+              onChange={(e) => {
+                setValue(
+                  "notes",
+                  sanitizeLiveText(e.target.value, LIMITS.NOTES, true),
+                  { shouldDirty: true },
+                );
+              }}
+              onPaste={(e) => {
+                e.preventDefault();
+                const pasted = e.clipboardData.getData("text") || "";
+                const current = form.getValues("notes") || "";
+                setValue(
+                  "notes",
+                  sanitizeLiveText(current + pasted, LIMITS.NOTES, true),
+                  { shouldDirty: true },
+                );
+              }}
             />
           </div>
         </div>
