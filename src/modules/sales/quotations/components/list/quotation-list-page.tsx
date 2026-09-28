@@ -31,11 +31,7 @@ export default function QuotationListPage() {
     status: status
       ? (status as
           | "DRAFT"
-          | "SENT"
-          | "ACCEPTED"
-          | "REJECTED"
-          | "EXPIRED"
-          | "CANCELLED")
+          | "ACCEPTED" | "REJECTED" | "EXPIRED")
       : undefined,
     ...quotationDateRange(period),
   });

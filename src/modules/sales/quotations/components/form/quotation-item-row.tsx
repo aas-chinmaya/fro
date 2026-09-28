@@ -60,7 +60,7 @@ export function QuotationItemRow({
   const unit = useWatch({ control, name: `${prefix}.unit` }) ?? "PCS";
   const description =
     useWatch({ control, name: `${prefix}.description` }) ?? "";
-  const hsnSac = useWatch({ control, name: `${prefix}.hsnSac` }) ?? "";
+  const hsnSacCode = useWatch({ control, name: `${prefix}.hsnSacCode` }) ?? "";
   const stockAvailable = useWatch({
     control,
     name: `${prefix}.stockAvailable`,
@@ -105,7 +105,7 @@ export function QuotationItemRow({
     setValue(`${prefix}.itemId`, null, { shouldDirty: true });
     setValue(`${prefix}.itemName`, "", { shouldDirty: true });
     setValue(`${prefix}.description`, null, { shouldDirty: true });
-    setValue(`${prefix}.hsnSac`, null, { shouldDirty: true });
+    setValue(`${prefix}.hsnSacCode`, null, { shouldDirty: true });
     setValue(`${prefix}.rate`, 0, { shouldDirty: true });
     setValue(`${prefix}.price`, 0, { shouldDirty: true });
     setValue(`${prefix}.quantity`, 1, { shouldDirty: true });
@@ -132,11 +132,15 @@ export function QuotationItemRow({
       { shouldDirty: true },
     );
     setValue(
-      `${prefix}.hsnSac`,
-      item.hsnSac
-        ? sanitizePlainText(item.hsnSac, 12).replace(/[^0-9A-Za-z]/g, "") ||
-            null
-        : null,
+      `${prefix}.hsnSacCode`,
+      (() => {
+        const raw =
+          (item as { hsnSacCode?: string; hsnSac?: string }).hsnSacCode ||
+          (item as { hsnSac?: string }).hsnSac ||
+          "";
+        const cleaned = sanitizePlainText(raw, 12).replace(/[^0-9A-Za-z]/g, "");
+        return cleaned || null;
+      })(),
       { shouldDirty: true },
     );
     setValue(`${prefix}.rate`, item.rate, { shouldDirty: true });
@@ -193,12 +197,12 @@ export function QuotationItemRow({
   };
 
   const setSafeText = (
-    field: "itemName" | "description" | "hsnSac",
+    field: "itemName" | "description" | "hsnSacCode",
     raw: string,
     max: number,
   ) => {
     let clean = sanitizePlainText(raw, max);
-    if (field === "hsnSac") {
+    if (field === "hsnSacCode") {
       clean = clean.replace(/[^0-9A-Za-z]/g, "").slice(0, 12);
     }
     setValue(
@@ -272,10 +276,10 @@ export function QuotationItemRow({
         {/* Row-1 fields: HSN Qty UOM Price Disc Tax Total(placeholder align) */}
         <div>
           <input
-            value={hsnSac || ""}
+            value={hsnSacCode || ""}
             maxLength={12}
             placeholder="HSN/SAC"
-            onChange={(e) => setSafeText("hsnSac", e.target.value, 12)}
+            onChange={(e) => setSafeText("hsnSacCode", e.target.value, 12)}
             className={`${cell} text-center`}
           />
         </div>
@@ -383,10 +387,10 @@ export function QuotationItemRow({
               HSN / SAC
             </label>
             <input
-              value={hsnSac || ""}
+              value={hsnSacCode || ""}
               maxLength={12}
               placeholder="—"
-              onChange={(e) => setSafeText("hsnSac", e.target.value, 12)}
+              onChange={(e) => setSafeText("hsnSacCode", e.target.value, 12)}
               className={`${cell} text-center`}
             />
           </div>

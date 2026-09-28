@@ -61,10 +61,6 @@ export default function QuotationFilters({
             Finalized
           </SelectItem>
 
-          <SelectItem value="SENT">
-            Sent
-          </SelectItem>
-
           <SelectItem value="ACCEPTED">
             Accepted
           </SelectItem>
@@ -75,10 +71,6 @@ export default function QuotationFilters({
 
           <SelectItem value="EXPIRED">
             Expired
-          </SelectItem>
-
-          <SelectItem value="CANCELLED">
-            Cancelled
           </SelectItem>
         </SelectContent>
       </Select>

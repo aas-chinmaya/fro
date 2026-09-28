@@ -1,14 +1,6 @@
-
-
-
 "use client";
 
 import type { Quotation, TaxType } from "../../../types/quotation.types";
-import {
-  QuotationPaymentDetails,
-  type BankDetails,
-  type UpiDetails,
-} from "./quotation-payment-details";
 
 function formatCurrency(value: number) {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -23,19 +15,9 @@ function num(v: unknown) {
 
 interface QuotationSummaryProps {
   quotation: Quotation;
-  showBank?: boolean;
-  showUpi?: boolean;
-  bank?: BankDetails;
-  upi?: UpiDetails;
 }
 
-export function QuotationSummary({
-  quotation,
-  showBank = true,
-  showUpi = true,
-  bank,
-  upi,
-}: QuotationSummaryProps) {
+export function QuotationSummary({ quotation }: QuotationSummaryProps) {
   const taxType = quotation.taxType as TaxType | null | undefined;
   const isInter = taxType === "INTER_STATE";
 
@@ -48,23 +30,12 @@ export function QuotationSummary({
   const grandTotal = num(quotation.grandTotal);
 
   return (
-    <div className="grid grid-cols-1 border-t border-slate-800 sm:grid-cols-[1fr_min(100%,340px)]">
-      {/* LEFT — bank / UPI (replaces empty red box) */}
-      <div className="border-b border-slate-800 sm:border-b-0 sm:border-r">
-        <QuotationPaymentDetails
-          showBank={showBank}
-          showUpi={showUpi}
-          bank={bank}
-          upi={upi}
-        />
-      </div>
-
-      {/* RIGHT — totals */}
-      <div className="text-[10px] sm:text-[11px]">
+    <div className="flex justify-end border-t border-slate-800">
+      <div className="w-full text-[10px] sm:w-[min(100%,340px)] sm:text-[11px]">
         <SummaryRow label="Taxable Amount" value={formatCurrency(taxable)} />
-        {discount >= 0 && (
+        {discount > 0 ? (
           <SummaryRow label="Discount" value={formatCurrency(discount)} />
-        )}
+        ) : null}
         {isInter ? (
           <SummaryRow label="IGST" value={formatCurrency(igst)} />
         ) : (
@@ -73,9 +44,9 @@ export function QuotationSummary({
             <SummaryRow label="SGST" value={formatCurrency(sgst)} />
           </>
         )}
-        {roundOff !== 0 && (
+        {roundOff !== 0 ? (
           <SummaryRow label="Round Off" value={formatCurrency(roundOff)} />
-        )}
+        ) : null}
         <div className="flex justify-between sm:justify-end">
           <span className="px-2 py-1 text-right font-semibold sm:w-[185px]">
             Total ({quotation.currency || "INR"})

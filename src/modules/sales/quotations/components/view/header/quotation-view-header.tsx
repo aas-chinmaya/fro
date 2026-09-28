@@ -1,46 +1,36 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
-  ChevronDown,
-  Download,
   Edit,
+  FileDown,
   Loader2,
   XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import type {
-  Quotation,
-  QuotationStatus,
-} from "../../../types/quotation.types";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/modules/sales/shared/components/ui/status-badge";
+import type { Quotation } from "../../../types/quotation.types";
 
 interface QuotationViewHeaderProps {
   quotation: Quotation;
   onDownload?: () => void;
   onStatusChange?: (
-    status: "ACCEPTED" | "REJECTED" | "CANCELLED" | "SENT" | "FINALIZED",
+    status: "ACCEPTED" | "REJECTED",
+    statusNote?: string,
   ) => void;
   statusLoading?: boolean;
   downloadLoading?: boolean;
 }
 
-const STATUS_CHANGEABLE: QuotationStatus[] = ["DRAFT", "FINALIZED", "SENT"];
-
-const NEXT_STATUSES: Record<
-  string,
-  Array<"SENT" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "FINALIZED">
-> = {
-  DRAFT: ["FINALIZED", "SENT", "CANCELLED"],
-  FINALIZED: ["SENT", "ACCEPTED", "REJECTED", "CANCELLED"],
-  SENT: ["ACCEPTED", "REJECTED", "CANCELLED"],
-};
-
-function formatStatus(status: string) {
-  return status.charAt(0) + status.slice(1).toLowerCase();
-}
-
+/**
+ * Status rules:
+ * - DRAFT      → Edit only
+ * - FINALIZED  → Accept / Reject (with confirm + statusNote)
+ * - ACCEPTED / REJECTED / EXPIRED → no approve/reject again
+ */
 export function QuotationViewHeader({
   quotation,
   onDownload,
@@ -49,140 +39,195 @@ export function QuotationViewHeader({
   downloadLoading,
 }: QuotationViewHeaderProps) {
   const router = useRouter();
-  const [statusOpen, setStatusOpen] = useState(false);
-  const statusRef = useRef<HTMLDivElement>(null);
+  const status = String(quotation.quotationStatus || "DRAFT").toUpperCase();
 
-  const canChangeStatus = STATUS_CHANGEABLE.includes(
-    quotation.quotationStatus,
+  const canEdit = status === "DRAFT";
+  const canAcceptReject = status === "FINALIZED";
+  /** PDF only after finalized (not on draft) */
+  const canDownload = status !== "DRAFT";
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<"ACCEPTED" | "REJECTED" | null>(
+    null,
   );
-  const canEdit = quotation.quotationStatus === "DRAFT";
-  const canAccept =
-    quotation.quotationStatus === "SENT" ||
-    quotation.quotationStatus === "FINALIZED";
-  const nextStatuses = NEXT_STATUSES[quotation.quotationStatus] ?? [];
+  const [statusNote, setStatusNote] = useState("");
 
-  useEffect(() => {
-    const onOutside = (e: MouseEvent) => {
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
-        setStatusOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, []);
+  const openConfirm = (next: "ACCEPTED" | "REJECTED") => {
+    setPendingStatus(next);
+    setStatusNote("");
+    setConfirmOpen(true);
+  };
+
+  const closeConfirm = () => {
+    if (statusLoading) return;
+    setConfirmOpen(false);
+    setPendingStatus(null);
+    setStatusNote("");
+  };
+
+  const confirmAction = () => {
+    if (!pendingStatus) return;
+    onStatusChange?.(pendingStatus, statusNote.trim() || undefined);
+    closeConfirm();
+  };
 
   return (
-    <header className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 sm:h-14 sm:px-5">
-      <div className="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-          title="Back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-[15px]">
-            {quotation.quotationNumber ?? "Quotation"}
-          </h1>
-          <p className="truncate text-[11px] text-slate-500">
-            {formatStatus(quotation.quotationStatus)}
-            {quotation.prospectName ? ` · ${quotation.prospectName}` : ""}
-          </p>
+    <>
+      <div className="flex h-12 w-full shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-3 sm:h-14 sm:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push("/sales/quotations")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+            title="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+
+          <div className="min-w-0">
+            <p className="hidden text-[11px] text-gray-500 sm:block">
+              Sales / Quotation
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h1 className="truncate text-sm font-semibold text-gray-900">
+                {quotation.quotationNumber ?? "—"}
+              </h1>
+              <StatusBadge status={quotation.quotationStatus} />
+              {quotation.prospectName ? (
+                <span className="hidden truncate text-[11px] text-gray-500 sm:inline">
+                  · {quotation.prospectName}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {canAcceptReject ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                disabled={statusLoading}
+                onClick={() => openConfirm("ACCEPTED")}
+                className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500"
+                title="Accept"
+              >
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                <span className="hidden sm:inline">Accept</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={statusLoading}
+                onClick={() => openConfirm("REJECTED")}
+                className="gap-1.5 bg-red-700 text-white hover:bg-red-600"
+                title="Reject"
+              >
+                <XCircle className="size-3.5 shrink-0" />
+                <span className="hidden sm:inline">Reject</span>
+              </Button>
+            </>
+          ) : null}
+
+          {canDownload ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={downloadLoading || !onDownload}
+              onClick={onDownload}
+              className="gap-1.5 bg-red-700 text-white hover:bg-red-600"
+              title="Download PDF"
+            >
+              {downloadLoading ? (
+                <Loader2 className="size-3.5 shrink-0 animate-spin" />
+              ) : (
+                <FileDown className="size-3.5 shrink-0" />
+              )}
+              <span className="hidden sm:inline">
+                {downloadLoading ? "Downloading…" : "Download PDF"}
+              </span>
+            </Button>
+          ) : null}
+
+          {canEdit ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() =>
+                router.push(`/sales/quotations/${quotation.id}/edit`)
+              }
+              className="gap-1.5 bg-primary text-white"
+              title="Edit"
+            >
+              <Edit className="size-3.5 shrink-0" />
+              <span className="hidden sm:inline">Edit</span>
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        {canAccept && (
-          <>
-            <button
-              type="button"
-              disabled={statusLoading}
-              onClick={() => onStatusChange?.("ACCEPTED")}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Accept</span>
-            </button>
-            <button
-              type="button"
-              disabled={statusLoading}
-              onClick={() => onStatusChange?.("REJECTED")}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-60"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Reject</span>
-            </button>
-          </>
-        )}
-
-        {canChangeStatus && !canAccept && (
-          <div className="relative" ref={statusRef}>
-            <button
-              type="button"
-              disabled={statusLoading}
-              onClick={() => setStatusOpen((o) => !o)}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              {statusLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              )}
-              <span className="hidden sm:inline">Status</span>
-              <ChevronDown className="h-3 w-3 text-slate-400" />
-            </button>
-            {statusOpen && !statusLoading && (
-              <div className="absolute right-0 top-full z-50 mt-1.5 w-40 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                {nextStatuses.map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => {
-                      setStatusOpen(false);
-                      onStatusChange?.(st);
-                    }}
-                    className="flex w-full items-center rounded-md px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                  >
-                    {formatStatus(st)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onDownload}
-          disabled={downloadLoading || !onDownload}
-          className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-          title="Download PDF"
-        >
-          {downloadLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Download className="h-3.5 w-3.5 text-violet-600" />
-          )}
-          <span className="hidden sm:inline">
-            {downloadLoading ? "…" : "Download"}
-          </span>
-        </button>
-
-        {canEdit && (
-          <button
-            type="button"
-            onClick={() =>
-              router.push(`/sales/quotations/${quotation.id}/edit`)
-            }
-            className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-2.5 text-xs font-medium text-white transition hover:bg-primary/90"
+      {confirmOpen && pendingStatus ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-4 shadow-xl"
           >
-            <Edit className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Edit</span>
-          </button>
-        )}
-      </div>
-    </header>
+            <h2 className="text-base font-semibold text-slate-900">
+              {pendingStatus === "ACCEPTED"
+                ? "Accept quotation?"
+                : "Reject quotation?"}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {pendingStatus === "ACCEPTED"
+                ? "This will mark the quotation as accepted."
+                : "This will mark the quotation as rejected."}
+            </p>
+
+            <label className="mt-4 block text-xs font-medium text-slate-600">
+              Note (optional)
+            </label>
+            <textarea
+              value={statusNote}
+              onChange={(e) => setStatusNote(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Add a status note…"
+              className="mt-1 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={statusLoading}
+                onClick={closeConfirm}
+              >
+                Back
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={statusLoading}
+                onClick={confirmAction}
+                className={
+                  pendingStatus === "ACCEPTED"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                    : "bg-red-700 text-white hover:bg-red-600"
+                }
+              >
+                {statusLoading
+                  ? "Updating…"
+                  : pendingStatus === "ACCEPTED"
+                    ? "Confirm Accept"
+                    : "Confirm Reject"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

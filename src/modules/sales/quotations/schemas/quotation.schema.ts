@@ -3,11 +3,9 @@ import { z } from "zod";
 export const quotationStatusSchema = z.enum([
   "DRAFT",
   "FINALIZED",
-  "SENT",
   "ACCEPTED",
   "REJECTED",
   "EXPIRED",
-  "CANCELLED",
 ]);
 
 export const taxTypeSchema = z.enum(["INTRA_STATE", "INTER_STATE"]);
@@ -137,7 +135,7 @@ export const quotationItemSchema = z
       .transform((v) => stripControl(String(v || "")).slice(0, LIMITS.NAME))
       .superRefine((v, ctx) => noHarmful(v, ctx)),
     description: optionalSafeText(LIMITS.DESCRIPTION),
-    hsnSac: optionalSafeText(LIMITS.HSN),
+    hsnSacCode: optionalSafeText(LIMITS.HSN),
     quantity: z.coerce
       .number()
       .min(0, "Quantity cannot be negative")
@@ -221,16 +219,7 @@ export const quotationBaseSchema = z.object({
   businessState: optionalSafeText(LIMITS.CITY),
   businessStateCode: optionalSafeText(10),
   businessPincode: pincodeSchema,
-  businessCountry: optionalSafeText(LIMITS.CITY),
-
-  businessBankName: optionalSafeText(LIMITS.COMPANY),
-  businessBankAccountNumber: optionalSafeText(40),
-  businessBankIFSC: optionalSafeText(20),
-  businessBankBranch: optionalSafeText(LIMITS.CITY),
-  businessUPIId: optionalSafeText(100),
-  showBankDetails: z.boolean().optional().default(false),
-  showUPIDetails: z.boolean().optional().default(false),
-  businessLogo: z.string().max(500_000).nullable().optional(),
+  businessCountry: optionalSafeText(LIMITS.CITY),  businessLogo: z.string().max(500_000).nullable().optional(),
 
   prospectName: safeText(LIMITS.NAME, "Customer name is required"),
   prospectCompanyName: optionalSafeText(LIMITS.COMPANY),
@@ -274,7 +263,6 @@ export const quotationBaseSchema = z.object({
 
   notes: optionalSafeText(LIMITS.NOTES_HTML),
   termsAndConditions: safeText(LIMITS.NOTES_HTML, "Terms & conditions are required"),
-  signature: z.string().nullable().optional(),
   status: quotationStatusSchema.optional().default("DRAFT"),
 });
 

@@ -281,7 +281,7 @@ export function emptyLineItem(): QuotationFormValues["items"][number] {
     itemId: null,
     itemName: "",
     description: null,
-    hsnSac: null,
+    hsnSacCode: null,
     quantity: 1,
     unit: "PCS",
     rate: 0,
@@ -353,14 +353,7 @@ export function getDefaultQuotationValues(
     businessPincode: null,
     businessCountry: "India",
 
-businessBankName: null,
-businessBankAccountNumber: null,
-businessBankIFSC: null,
-businessBankBranch: null,
-businessUPIId: null,
 
-showBankDetails: true,
-showUPIDetails: true,
     prospectName: "",
     prospectCompanyName: null,
     prospectGSTIN: null,
@@ -399,7 +392,6 @@ showUPIDetails: true,
 
     notes: null,
     termsAndConditions: "",
-    signature: undefined,
   } as QuotationFormValues;
 }
 
@@ -427,14 +419,7 @@ export function mapQuotationToFormValues(
     businessPincode: q.businessPincode ?? null,
     businessCountry: q.businessCountry ?? "India",
 
-businessBankName: q.businessBankName ?? null,
-businessBankAccountNumber: q.businessBankAccountNumber ?? null,
-businessBankIFSC: q.businessBankIFSC ?? null,
-businessBankBranch: q.businessBankBranch ?? null,
-businessUPIId: q.businessUPIId ?? null,
 
-showBankDetails: q.showBankDetails ?? false,
-showUPIDetails: q.showUPIDetails ?? false,
 
     prospectName: q.prospectName ?? "",
     prospectCompanyName: q.prospectCompanyName ?? null,
@@ -468,7 +453,7 @@ showUPIDetails: q.showUPIDetails ?? false,
               itemId: item.itemId ?? null,
               itemName: item.itemName ?? "",
               description: item.description ?? null,
-              hsnSac: item.hsnSac ?? null,
+              hsnSacCode: item.hsnSacCode ?? (item as { hsnSac?: string }).hsnSac ?? null,
               quantity: item.quantity ?? 1,
               unit: item.unit ?? "PCS",
               rate: unitPrice,
@@ -503,7 +488,6 @@ showUPIDetails: q.showUPIDetails ?? false,
 
     notes: q.notes ?? null,
     termsAndConditions: q.termsAndConditions ?? "",
-    signature: q.signature ?? null,
   } as QuotationFormValues;
 }
 
@@ -524,13 +508,6 @@ export function getSessionFormDefaults(session: {
     stateCode?: string | null;
     pincode?: string | null;
     country: string;
-
-     bankName?: string | null;
-  bankAccountNumber?: string | null;
-  bankIFSC?: string | null;
-  bankBranch?: string | null;
-  upiId?: string | null;
-
   } | null;
 } | null): Partial<QuotationFormValues> {
   if (!session) return {};
@@ -554,14 +531,7 @@ export function getSessionFormDefaults(session: {
     businessPincode: business?.pincode ?? null,
     businessCountry: business?.country ?? "India",
 
-    businessBankName: business?.bankName ?? null,
-businessBankAccountNumber: business?.bankAccountNumber ?? null,
-businessBankIFSC: business?.bankIFSC ?? null,
-businessBankBranch: business?.bankBranch ?? null,
-businessUPIId: business?.upiId ?? null,
 
-showBankDetails: true,
-showUPIDetails: true,
     businessLogo: (business as { logo?: string | null } | null | undefined)?.logo ?? null,
   };
 }
@@ -654,36 +624,10 @@ return {
   businessCountry:
     rest.businessCountry || "India",
 
-  showBankDetails:
-    rest.showBankDetails ?? false,
 
-  showUPIDetails:
-    rest.showUPIDetails ?? false,
 
   businessLogo: rest.businessLogo || null,
 
-  ...(rest.showBankDetails
-    ? {
-        businessBankName:
-          rest.businessBankName || null,
-
-        businessBankAccountNumber:
-          rest.businessBankAccountNumber || null,
-
-        businessBankIFSC:
-          rest.businessBankIFSC || null,
-
-        businessBankBranch:
-          rest.businessBankBranch || null,
-      }
-    : {}),
-
-  ...(rest.showUPIDetails
-    ? {
-        businessUPIId:
-          rest.businessUPIId || null,
-      }
-    : {}),
 
   prospectName: rest.prospectName,
   prospectCompanyName:
@@ -734,8 +678,8 @@ return {
         const d = sanitizePlainText(item.description, 1000);
         return d || null;
       })(),
-      hsnSac: (() => {
-        const h = sanitizePlainText(item.hsnSac, 12).replace(/[^0-9A-Za-z]/g, "");
+      hsnSacCode: (() => {
+        const h = sanitizePlainText(item.hsnSacCode ?? (item as { hsnSac?: string }).hsnSac, 12).replace(/[^0-9A-Za-z]/g, "");
         return h || null;
       })(),
       quantity: clampQty(item.quantity),
@@ -783,7 +727,6 @@ return {
     const t = sanitizePlainText(rest.termsAndConditions, 10000);
     return t || null;
   })(),
-  signature: rest.signature || null,
   status: (rest.status as import("../types/quotation.types").QuotationStatus | undefined) ?? "DRAFT",
 };
 }

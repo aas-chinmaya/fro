@@ -9,7 +9,6 @@ import { RichTextEditor } from "@/components/editor";
 import type { QuotationFormValues } from "../../types/quotation-form.types";
 import type { TaxType } from "../../types/quotation.types";
 import { formatINR, amountInWords } from "../../utils/quotation-form.utils";
-import { QuotationSignatureSection } from "./quotation-signature-section";
 
 function SumRow({
   label,
@@ -164,11 +163,6 @@ export function QuotationSummary() {
                 {amountInWords(grandTotal)}
               </p>
             </div>
-          </div>
-
-          {/* Signature — same width as summary card */}
-          <div className="mt-4">
-            <QuotationSignatureSection compact />
           </div>
         </div>
       </div>

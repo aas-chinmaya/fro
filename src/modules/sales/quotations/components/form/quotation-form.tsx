@@ -54,8 +54,7 @@ export function QuotationForm({
       reset(
         mapQuotationToFormValues(
           quotation,
-          session?.business?.id,
-          session?.user?.id,
+          session?.tenantId?.id,
         ),
       );
     } else {
@@ -73,7 +72,8 @@ export function QuotationForm({
     mode === "edit" &&
     (quotation?.quotationStatus === "FINALIZED" ||
       quotation?.quotationStatus === "ACCEPTED" ||
-      quotation?.quotationStatus === "CANCELLED");
+      quotation?.quotationStatus === "REJECTED" ||
+      quotation?.quotationStatus === "EXPIRED");
 
 
   const sessionDefaults = useMemo(
@@ -207,7 +207,6 @@ export function QuotationForm({
       quotationDate: "Quotation date",
       validUntil: "Valid until",
       termsAndConditions: "Terms & conditions",
-      signature: "Authorized signatory",
       items: "Product items",
       businessName: "Business name",
     };
@@ -241,7 +240,7 @@ export function QuotationForm({
   const submitWithStatus = async (status: "DRAFT" | "FINALIZED") => {
     const values = form.getValues();
 
-    // Finalize only: full schema + terms + signature
+    // Finalize only: full schema + terms
     if (status === "FINALIZED") {
       const valid = await form.trigger();
       if (!valid) {
@@ -286,13 +285,8 @@ export function QuotationForm({
       const terms = (values.termsAndConditions || "")
         .replace(/<[^>]+>/g, "")
         .trim();
-      const sig = values.signature;
       if (!terms) {
         notify.error("Terms & conditions are required to finalize");
-        return;
-      }
-      if (!sig) {
-        notify.error("Signature is required to finalize");
         return;
       }
     }

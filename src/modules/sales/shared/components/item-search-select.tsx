@@ -18,7 +18,7 @@ export type SelectedItem = {
   unit: string;
   /** Full GST rate % (e.g. 18) */
   taxRate: number;
-  hsnSac?: string | null;
+  hsnSacCode?: string | null;
   stock?: number | null;
   /** Optional pre-split rates (if API sends them) */
   cgstRate?: number | null;
@@ -67,7 +67,7 @@ const STATIC_INVENTORY: SelectedItem[] = [
     cgstRate: 14,
     sgstRate: 14,
     igstRate: 28,
-    hsnSac: "84151010",
+    hsnSacCode: "84151010",
     stock: 12,
   },
   {
@@ -81,7 +81,7 @@ const STATIC_INVENTORY: SelectedItem[] = [
     cgstRate: 9,
     sgstRate: 9,
     igstRate: 18,
-    hsnSac: "998719",
+    hsnSacCode: "998719",
     stock: null,
   },
   {
@@ -94,7 +94,7 @@ const STATIC_INVENTORY: SelectedItem[] = [
     cgstRate: 9,
     sgstRate: 9,
     igstRate: 18,
-    hsnSac: "998314",
+    hsnSacCode: "998314",
     stock: null,
   },
   {
@@ -107,7 +107,7 @@ const STATIC_INVENTORY: SelectedItem[] = [
     cgstRate: 9,
     sgstRate: 9,
     igstRate: 18,
-    hsnSac: "998314",
+    hsnSacCode: "998314",
     stock: null,
   },
 ];
@@ -121,7 +121,7 @@ function useItemSearch(debounced: string) {
       (i) =>
         i.name.toLowerCase().includes(q) ||
         (i.description || "").toLowerCase().includes(q) ||
-        (i.hsnSac || "").toLowerCase().includes(q),
+        (i.hsnSacCode || "").toLowerCase().includes(q),
     );
   }, [debounced]);
   return { items, isLoading };
@@ -263,7 +263,7 @@ export default function ItemSearchSelect({
                   <p className="text-[11px] text-slate-500">
                     ₹{item.rate.toLocaleString("en-IN")} · {item.unit}
                     {item.taxRate != null ? ` · GST ${item.taxRate}%` : ""}
-                    {item.hsnSac ? ` · HSN ${item.hsnSac}` : ""}
+                    {item.hsnSacCode ? ` · HSN ${item.hsnSacCode}` : ""}
                     {showStock && item.stock != null ? ` · Stock ${item.stock}` : ""}
                   </p>
                 </div>

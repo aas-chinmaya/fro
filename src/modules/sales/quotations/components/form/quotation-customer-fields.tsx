@@ -33,12 +33,42 @@ export function QuotationCustomerFields() {
   const err = (key: keyof QuotationFormValues) =>
     (errors[key]?.message as string | undefined) || undefined;
 
-  const fillFromCustomer = (c: SelectedCustomer | null) => {
-    if (!c) return;
+  const clearCustomerFields = () => {
+    setValue("prospectName", "", { shouldDirty: true, shouldValidate: true });
+    setValue("prospectCompanyName", "", { shouldDirty: true });
+    setValue("prospectPhone", "", { shouldDirty: true, shouldValidate: true });
+    setValue("prospectEmail", null, { shouldDirty: true });
+    setValue("prospectGSTIN", "", { shouldDirty: true });
+    setValue("prospectPAN", "", { shouldDirty: true });
+    setValue("prospectAddressLine1", "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("prospectAddressLine2", "", { shouldDirty: true });
+    setValue("prospectCity", "", { shouldDirty: true, shouldValidate: true });
+    setValue("prospectPincode", "", { shouldDirty: true, shouldValidate: true });
+    setValue("prospectCountry", "India", { shouldDirty: true });
+    setValue("prospectState", "", { shouldDirty: true, shouldValidate: true });
+    setValue("prospectStateCode", "", { shouldDirty: true });
+    setValue("placeOfSupply", "", { shouldDirty: true, shouldValidate: true });
+    setValue("placeOfSupplyCode", "", { shouldDirty: true });
+  };
 
-    setValue("prospectName", c.name || "", { shouldDirty: true, shouldValidate: true });
+  const fillFromCustomer = (c: SelectedCustomer | null) => {
+    if (!c) {
+      clearCustomerFields();
+      return;
+    }
+
+    setValue("prospectName", c.name || "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setValue("prospectCompanyName", c.companyName || "", { shouldDirty: true });
-    setValue("prospectPhone", c.mobile || "", { shouldDirty: true, shouldValidate: true });
+    setValue("prospectPhone", c.mobile || "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setValue("prospectEmail", c.email || null, { shouldDirty: true });
     setValue("prospectGSTIN", c.gstin || "", { shouldDirty: true });
     setValue("prospectPAN", c.pan || "", { shouldDirty: true });

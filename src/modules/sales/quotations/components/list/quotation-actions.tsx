@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import { useState } from "react";
@@ -18,13 +15,7 @@ type QuotationActionsProps = {
   status?: string | null;
 };
 
-const LOCKED_STATUSES: QuotationStatus[] = [
-  "ACCEPTED",
-  "REJECTED",
-  "CANCELLED",
-  "EXPIRED",
-];
-
+/** Only DRAFT can be edited or deleted */
 export default function QuotationActions({
   id,
   quotationNumber,
@@ -35,9 +26,9 @@ export default function QuotationActions({
   const [deleteQuotation, { isLoading: isDeleting }] =
     useDeleteQuotationMutation();
 
-  const normalized = (status || "").toUpperCase() as QuotationStatus;
-  const canEdit = !LOCKED_STATUSES.includes(normalized);
-  const canDelete = canEdit;
+  const normalized = (status || "DRAFT").toUpperCase() as QuotationStatus;
+  const canEdit = normalized === "DRAFT";
+  const canDelete = normalized === "DRAFT";
   const label = quotationNumber || id;
 
   const handleDelete = async () => {
@@ -76,7 +67,7 @@ export default function QuotationActions({
           title={
             canEdit
               ? "Edit quotation"
-              : `Cannot edit when status is ${normalized || "locked"}`
+              : `Cannot edit when status is ${normalized}`
           }
           disabled={!canEdit}
           onClick={() => {
@@ -96,7 +87,7 @@ export default function QuotationActions({
           title={
             canDelete
               ? "Delete quotation"
-              : `Cannot delete when status is ${normalized || "locked"}`
+              : `Cannot delete when status is ${normalized}`
           }
           disabled={!canDelete || isDeleting}
           onClick={() => setOpen(true)}
@@ -111,7 +102,7 @@ export default function QuotationActions({
         title="Delete quotation?"
         description={`This will permanently delete quotation ${label}. This action cannot be undone.`}
         confirmLabel="Delete"
-        cancelLabel="Cancel"
+        cancelLabel="Back"
         loading={isDeleting}
         onConfirm={handleDelete}
         onCancel={() => setOpen(false)}

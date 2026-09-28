@@ -5,11 +5,9 @@
 export type QuotationStatus =
   | "DRAFT"
   | "FINALIZED"
-  | "SENT"
   | "ACCEPTED"
   | "REJECTED"
-  | "EXPIRED"
-  | "CANCELLED";
+  | "EXPIRED";
 
 export type DiscountType = "PERCENTAGE" | "FIXED";
 
@@ -27,31 +25,40 @@ export interface QuotationCustomer {
 export interface QuotationItem {
   id?: string;
   itemId?: string | null;
+  productId?: string | null;
+  variantId?: string | null;
   itemName?: string | null;
+  itemCode?: string | null;
   description?: string | null;
+  /** Prefer hsnSacCode (API) */
+  hsnSacCode?: string | null;
+  /** @deprecated legacy alias */
   hsnSac?: string | null;
   unit?: string | null;
-  quantity: number;
-  /** Unit price */
-  price?: number;
-  /** Alias of price (API / legacy) */
-  rate?: number;
-  discount?: number;
+  quantity: number | string;
+  price?: number | string;
+  rate?: number | string;
+  discount?: number | string;
+  discountValue?: number | string;
   discountType?: DiscountType;
-  /** Combined GST rate % — split into CGST/SGST or IGST by taxType */
-  taxRate?: number;
-  taxAmount?: number;
-  cgstRate?: number;
-  cgstAmount?: number;
-  sgstRate?: number;
-  sgstAmount?: number;
-  igstRate?: number;
-  igstAmount?: number;
-  /** Line total after discount + tax */
-  total?: number;
-  /** Alias of total (API / legacy) */
-  amount?: number;
+  discountAmount?: number | string;
+  taxableAmount?: number | string;
+  taxRate?: number | string;
+  taxAmount?: number | string;
+  totalTaxAmount?: number | string;
+  cgstRate?: number | string;
+  cgstAmount?: number | string;
+  sgstRate?: number | string;
+  sgstAmount?: number | string;
+  igstRate?: number | string;
+  igstAmount?: number | string;
+  cessRate?: number | string;
+  cessAmount?: number | string;
+  total?: number | string;
+  amount?: number | string;
+  lineTotal?: number | string;
   stockAvailable?: number | null;
+  sortOrder?: number;
 }
 
 export interface Quotation {
@@ -77,17 +84,7 @@ export interface Quotation {
   businessStateCode?: string | null;
   businessPincode?: string | null;
   businessCountry: string;
-
-
-businessBankName?: string | null;
-businessBankAccountNumber?: string | null;
-businessBankIFSC?: string | null;
-businessBankBranch?: string | null;
-businessUPIId?: string | null;
-
-showBankDetails: boolean;
-showUPIDetails: boolean;
-
+  businessLogo?: string | null;
   prospectName: string;
   prospectCompanyName?: string | null;
   prospectGSTIN?: string | null;
@@ -102,6 +99,7 @@ showUPIDetails: boolean;
   prospectPincode?: string | null;
   prospectCountry: string;
 
+  customerId?: string | null;
   customer?: QuotationCustomer | null;
 
   placeOfSupply?: string | null;
@@ -114,25 +112,29 @@ showUPIDetails: boolean;
   exchangeRate?: number | null;
 
   totalItems: number;
-  totalQuantity: number;
-  taxableAmount: number;
-  discountAmount: number;
-  cgstAmount: number;
-  sgstAmount: number;
-  igstAmount: number;
-  cessAmount: number;
-  roundOffAmount: number;
-  grandTotal: number;
+  totalQuantity: number | string;
+  taxableAmount: number | string;
+  discountAmount: number | string;
+  cgstAmount: number | string;
+  sgstAmount: number | string;
+  igstAmount: number | string;
+  cessAmount: number | string;
+  roundOffAmount: number | string;
+  grandTotal: number | string;
 
   acceptedAt?: string | null;
   acceptedBy?: string | null;
   rejectedAt?: string | null;
   rejectedBy?: string | null;
   rejectionReason?: string | null;
+  finalizedAt?: string | null;
+  finalizedBy?: string | null;
+  statusChangedAt?: string | null;
+  statusChangedBy?: string | null;
+  statusNote?: string | null;
 
   notes?: string | null;
   termsAndConditions?: string | null;
-  signature?: string | null;
   printCount: number;
   items: QuotationItem[];
 
@@ -148,114 +150,39 @@ export interface QuotationListParams {
   limit?: number;
   search?: string;
   status?: QuotationStatus;
-  branchId?: string;
-  financialYear?: string;
   fromDate?: string;
   toDate?: string;
+  branchId?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }
 
-export interface QuotationPagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
 export interface QuotationListResponse {
-  success: boolean;
-  message: string;
   data: Quotation[];
-  pagination?: QuotationPagination;
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
+  message?: string;
 }
 
 export interface QuotationResponse {
-  success: boolean;
-  message: string;
   data: Quotation;
+  message?: string;
 }
 
-export interface QuotationCreatePayload {
-
-  quotationDate: string;
-  validUntil: string;
-  financialYear?: string | null;
-
-  businessName: string;
-  businessLegalName?: string | null;
-  businessGSTIN?: string | null;
-  businessPAN?: string | null;
-  businessPhone?: string | null;
-  businessEmail?: string | null;
-  businessAddressLine1?: string | null;
-  businessAddressLine2?: string | null;
-  businessCity?: string | null;
-  businessState?: string | null;
-  businessStateCode?: string | null;
-  businessPincode?: string | null;
-  businessCountry?: string;
-
-
-businessBankName?: string | null;
-businessBankAccountNumber?: string | null;
-businessBankIFSC?: string | null;
-businessBankBranch?: string | null;
-businessUPIId?: string | null;
-
-showBankDetails?: boolean;
-showUPIDetails?: boolean;
-
-  prospectName: string;
-  prospectCompanyName?: string | null;
-  prospectGSTIN?: string | null;
-  prospectPAN?: string | null;
-  prospectPhone?: string | null;
-  prospectEmail?: string | null;
-  prospectAddressLine1?: string | null;
-  prospectAddressLine2?: string | null;
-  prospectCity?: string | null;
-  prospectState?: string | null;
-  prospectStateCode?: string | null;
-  prospectPincode?: string | null;
-  prospectCountry?: string;
-
-  placeOfSupply?: string | null;
-  placeOfSupplyCode?: string | null;
-  taxType?: TaxType | null;
-  reverseCharge?: boolean;
-  isExport?: boolean;
-  isSEZ?: boolean;
-  currency?: string;
-  exchangeRate?: number | null;
-
-  items: QuotationItem[];
-
-  totalItems?: number;
-  totalQuantity?: number;
-  taxableAmount?: number;
-  discountAmount?: number;
-  cgstAmount?: number;
-  sgstAmount?: number;
-  igstAmount?: number;
-  cessAmount?: number;
-  roundOffAmount?: number;
-  grandTotal?: number;
-
-  notes?: string | null;
-  termsAndConditions?: string | null;
-  signature?: string | null;
-  status?: QuotationStatus;
-  
+export interface UpdateQuotationStatusPayload {
+  status: "ACCEPTED" | "REJECTED" | "FINALIZED";
+  statusNote?: string | null;
 }
 
-export interface QuotationUpdatePayload
-  extends Partial<Omit<QuotationCreatePayload, "tenantId" | "createdBy">> {
-  updatedBy?: string;
-}
 
-/** PATCH /quotations/:id/status */
 export interface QuotationStatusChangePayload {
-  status: QuotationStatus;
-  remarks?: string;
+  status: "ACCEPTED" | "REJECTED" | "FINALIZED";
+  statusNote?: string | null;
 }
+
+export type QuotationCreatePayload = Record<string, unknown>;
+export type QuotationUpdatePayload = Record<string, unknown>;

@@ -46,7 +46,6 @@ export function QuotationFormActions({
   const validUntil = useWatch({ control, name: "validUntil" });
   const items = useWatch({ control, name: "items" });
   const terms = useWatch({ control, name: "termsAndConditions" });
-  const signature = useWatch({ control, name: "signature" });
 
   const filledItems = (items || []).filter(
     (it) => (it?.itemName || "").trim().length > 0,
@@ -69,15 +68,14 @@ export function QuotationFormActions({
   /** Draft: always allowed when not locked / not submitting */
   const canSaveDraft = !readOnly && !isSubmitting;
 
-  /** Finalize: full required fields + signature */
+  /** Finalize: full required fields (no signature) */
   const canFinalize =
     !readOnly &&
     !isSubmitting &&
     customerOk &&
     hasDates &&
     hasItems &&
-    hasTerms &&
-    !!(signature && String(signature).trim());
+    hasTerms;
 
   return (
     <div className="sticky bottom-0 z-10 rounded-md border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6">
