@@ -58,6 +58,22 @@ export function sanitizePlainText(raw: unknown, maxLen = 1000): string {
   return s;
 }
 
+/** Keep safe rich-text HTML; limit by plain-text length (maxChars). */
+export function sanitizeRichText(raw: unknown, maxPlain = 1000): string {
+  let html = String(raw ?? "");
+  html = html
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(javascript|vbscript)\s*:/gi, "");
+  const plain = html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+  if (plain.length <= maxPlain) return html.trim();
+  // Truncate by walking plain length is complex for HTML — store as-is if over; schema blocks submit
+  return html.trim();
+}
+
+
 /** Ensure API gets full ISO datetime (date-only inputs → start/end of day) */
 export function toIsoDateTime(
   value: string | null | undefined,
@@ -330,9 +346,7 @@ export function resolveFinancialYear(dateStr?: string | null): string {
   return `${y - 1}-${String(y).slice(-2)}`;
 }
 
-export function getDefaultQuotationValues(
-  
-): QuotationFormValues {
+export function getDefaultQuotationValues(): QuotationFormValues {
   return {
   
     quotationDate: new Date().toISOString().slice(0, 10),
@@ -395,10 +409,7 @@ export function getDefaultQuotationValues(
   } as QuotationFormValues;
 }
 
-export function mapQuotationToFormValues(
-  q: Quotation,
- 
-): QuotationFormValues {
+export function mapQuotationToFormValues(q: Quotation): QuotationFormValues {
   return {
    
     quotationDate: q.quotationDate?.slice(0, 10) ?? "",
@@ -723,8 +734,8 @@ return {
     return n || null;
   })(),
   termsAndConditions: (() => {
-    // Terms may contain minimal formatting from editor — strip scripts/tags aggressively
-    const t = sanitizePlainText(rest.termsAndConditions, 10000);
+    // Preserve rich-text HTML (e.g. <p>…</p>); plain-text max enforced by schema
+    const t = sanitizeRichText(rest.termsAndConditions, 1000);
     return t || null;
   })(),
   status: (rest.status as import("../types/quotation.types").QuotationStatus | undefined) ?? "DRAFT",

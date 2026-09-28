@@ -106,11 +106,7 @@ export const quotationApi = baseApi.injectEndpoints({
       QuotationListResponse,
       QuotationListParams | undefined
     >({
-      // query: (params) => ({
-      //    url: `${QUOTATION_ENDPOINT}/list/`,
-      //   method: "GET",
-      //   params,
-      // }),
+     
       query: (params) => ({
         url: `${QUOTATION_ENDPOINT}/list/`,
         method: "GET",

@@ -25,6 +25,8 @@ export const LIMITS = {
   HSN: 12,
   UNIT: 20,
   NOTES_HTML: 500,
+  /** Terms & conditions plain text max */
+  TERMS: 1000,
   /** Max unit price (₹) — 10 crore */
   MAX_PRICE: 10_00_00_000,
   /** Max quantity per line */
@@ -116,6 +118,56 @@ const optionalSafeText = (max: number) =>
     .superRefine((v, ctx) => {
       if (typeof v === "string") noHarmful(v, ctx);
     });
+
+
+/** Strip tags for plain-text length checks only */
+function plainFromHtml(html: string) {
+  return (html || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Rich-text HTML field (e.g. TipTap/ProseMirror output like "<p>…</p>").
+ * - Keeps safe formatting tags
+ * - Blocks scripts / dangerous markup
+ * - Max length applies to *plain text* content (not HTML string length)
+ */
+const richText = (plainMax: number, requiredMsg?: string) =>
+  z
+    .string()
+    .max(plainMax * 5, `Content too large`) // HTML overhead allowance
+    .superRefine((val, ctx) => {
+      const plain = plainFromHtml(val);
+      if (requiredMsg && !plain) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: requiredMsg,
+        });
+        return;
+      }
+      if (plain.length > plainMax) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Max ${plainMax} characters`,
+        });
+      }
+      if (SAFE_TEXT_RE.test(val)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Invalid content",
+        });
+      }
+    })
+    .transform((val) => {
+      // Light sanitize: remove control chars, keep tags
+      return String(val || "")
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+        .trim();
+    });
+
 
 const money = (label: string, max = LIMITS.MAX_PRICE) =>
   z.coerce
@@ -262,7 +314,7 @@ export const quotationBaseSchema = z.object({
     .default(0),
 
   notes: optionalSafeText(LIMITS.NOTES_HTML),
-  termsAndConditions: safeText(LIMITS.NOTES_HTML, "Terms & conditions are required"),
+  termsAndConditions: richText(LIMITS.TERMS, "Terms & conditions are required"),
   status: quotationStatusSchema.optional().default("DRAFT"),
 });
 

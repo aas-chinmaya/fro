@@ -167,20 +167,27 @@ export function QuotationSummary() {
         </div>
       </div>
 
-      {/* Terms last — full width */}
+      {/* Terms last — full width, max 1000 characters (plain text) */}
       <div className="space-y-1.5">
-        <Label className="text-sm text-slate-600">
-          Terms &amp; conditions <span className="text-red-500">*</span>
-        </Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-sm text-slate-600">
+            Terms &amp; conditions <span className="text-red-500">*</span>
+          </Label>
+          <span className="text-[11px] text-slate-400">
+            {(terms || "").replace(/<[^>]+>/g, "").length}/1000
+          </span>
+        </div>
         <div className="w-full rounded-md border border-slate-200 bg-white [&_.ProseMirror]:min-h-[72px] [&_.ProseMirror]:max-h-[160px] [&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:px-3 [&_.ProseMirror]:py-2 [&_.ProseMirror]:outline-none">
           <RichTextEditor
             value={terms}
-            onChange={(value) =>
+            onChange={(value) => {
+              const plain = (value || "").replace(/<[^>]+>/g, "");
+              if (plain.length > 1000) return;
               setValue("termsAndConditions", value, {
                 shouldDirty: true,
                 shouldValidate: true,
-              })
-            }
+              });
+            }}
             placeholder="Payment terms, delivery, validity…"
           />
         </div>

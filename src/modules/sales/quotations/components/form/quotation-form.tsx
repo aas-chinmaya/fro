@@ -51,18 +51,10 @@ export function QuotationForm({
 
   const handleReset = () => {
     if (mode === "edit" && quotation) {
-      reset(
-        mapQuotationToFormValues(
-          quotation,
-          session?.tenantId?.id,
-        ),
-      );
+      reset(mapQuotationToFormValues(quotation));
     } else {
       reset({
-        ...getDefaultQuotationValues(
-          session?.business?.id ?? "",
-          session?.user?.id ?? "",
-        ),
+        ...getDefaultQuotationValues(),
         ...getSessionFormDefaults(session),
       });
     }
@@ -85,16 +77,9 @@ export function QuotationForm({
     resolver: zodResolver(quotationCreateSchema) as unknown as Resolver<QuotationFormValues>,
     defaultValues:
       mode === "edit" && quotation
-        ? mapQuotationToFormValues(
-            quotation,
-            session?.business?.id,
-            session?.user?.id,
-          )
+        ? mapQuotationToFormValues(quotation)
         : {
-            ...getDefaultQuotationValues(
-              session?.business?.id ?? "",
-              session?.user?.id ?? "",
-            ),
+            ...getDefaultQuotationValues(),
             ...sessionDefaults,
           },
     mode: "onChange",
@@ -165,30 +150,21 @@ export function QuotationForm({
 
   useEffect(() => {
     if (mode === "edit" && quotation) {
-      reset(
-        mapQuotationToFormValues(
-          quotation,
-          session?.business?.id,
-          session?.user?.id,
-        ),
-      );
+      reset(mapQuotationToFormValues(quotation));
     }
-  }, [mode, quotation, reset, session?.business?.id, session?.user?.id]);
+  }, [mode, quotation, reset]);
 
   useEffect(() => {
     if (mode !== "create" || !session) return;
     const current = form.getValues();
     if (!current.businessName && session.business?.name) {
       reset({
-        ...getDefaultQuotationValues(
-          session.business?.id ?? "",
-          session.user?.id ?? "",
-        ),
+        ...getDefaultQuotationValues(),
         ...getSessionFormDefaults(session),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, session?.business?.id, session?.user?.id]);
+  }, [mode, session]);
 
 
   const firstErrorMessage = (
