@@ -8,7 +8,7 @@ import type {
   SalesBillingAnalyticsResponse,
 } from "../types/sales-billing-analytics.types";
 
-const ANALYTICS_ENDPOINT = "/analytics";
+const ANALYTICS_ENDPOINT = "/analytics/sales-analytics";
 
 function unwrapAnalytics(response: unknown): SalesBillingAnalytics {
   if (
@@ -55,7 +55,7 @@ export const salesBillingAnalyticsApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: ANALYTICS_ENDPOINT,
         method: "GET",
-        params,
+        // params,
       }),
       transformResponse: (response: unknown) => unwrapAnalytics(response),
       providesTags: [
