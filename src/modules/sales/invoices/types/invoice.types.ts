@@ -36,7 +36,6 @@ export interface InvoiceItem {
   productName?: string | null;
   itemCode?: string | null;
   description?: string | null;
-  hsnSac?: string | null;
   hsnSacCode?: string | null;
   unit?: string | null;
   classification?: "GOODS" | "SERVICES" | null;
@@ -83,18 +82,11 @@ export interface Invoice {
   sellerStateCode?: string | null;
   sellerPincode?: string | null;
   sellerCountry?: string | null;
-
-  sellerBankName?: string | null;
-  sellerBankAccountNumber?: string | null;
-  sellerBankIFSC?: string | null;
-  sellerBankBranch?: string | null;
-  sellerUPIId?: string | null;
-
-  showBankDetails?: boolean;
-  showUPIDetails?: boolean;
+  businessLogo?: string | null;
 
   // Buyer (customer)
   customer?: InvoiceCustomer | null;
+  customerId?: string | null;
   buyerName: string;
   buyerCompanyName?: string | null;
   buyerGSTIN?: string | null;
@@ -195,10 +187,7 @@ export interface InvoiceResponse {
   data: Invoice;
 }
 
-
-
-
-/** Create payload — never include tenantId / createdBy / businessId (backend auth) */
+/** Create / update invoice API body */
 export interface InvoiceCreatePayload {
   invoiceType?: InvoiceType;
   invoiceDate: string;
@@ -206,12 +195,15 @@ export interface InvoiceCreatePayload {
   invoiceStatus?: InvoiceStatus;
   status?: InvoiceStatus;
 
+  customerId?: string | null;
   buyerName: string;
   buyerCompanyName?: string | null;
   buyerGSTIN?: string | null;
   buyerPAN?: string | null;
   buyerPhone?: string | null;
   buyerEmail?: string | null;
+  buyerType?: string | null;
+  buyerContactPerson?: string | null;
 
   billingAddressLine1?: string | null;
   billingAddressLine2?: string | null;
@@ -237,9 +229,13 @@ export interface InvoiceCreatePayload {
   isExport?: boolean;
   isSEZ?: boolean;
   currency?: string;
+  exchangeRate?: number | null;
 
   items: InvoiceItem[];
 
+  totalItems?: number;
+  totalQuantity?: number;
+  subtotal?: number;
   taxableAmount?: number;
   discountAmount?: number;
   cgstAmount?: number;
@@ -252,11 +248,14 @@ export interface InvoiceCreatePayload {
   paymentStatus?: PaymentStatus | null;
   paymentMethod?: string | null;
   paidAmount?: number | null;
+  pendingAmount?: number | null;
   paymentDate?: string | null;
   transactionId?: string | null;
+  receivedAccount?: string | null;
 
   showBankDetails?: boolean;
   showUPIDetails?: boolean;
+  businessLogo?: string | null;
 
   notes?: string | null;
   termsAndConditions?: string | null;
@@ -268,13 +267,4 @@ export type InvoiceUpdatePayload = Partial<InvoiceCreatePayload>;
 export interface InvoiceStatusChangePayload {
   status: string;
   remarks?: string;
-}
-
-
-
-
-export interface InvoiceOptionsParams {
-  customerId?: string;
-  paymentStatus?: PaymentStatus;
-  search?: string;
 }

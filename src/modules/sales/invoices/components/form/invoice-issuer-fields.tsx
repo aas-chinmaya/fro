@@ -6,15 +6,12 @@ import {
   Calendar,
   FileText,
   ImageIcon,
-  Landmark,
   Mail,
   MapPin,
   Phone,
-  Smartphone,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -25,6 +22,7 @@ import {
 import { FormField } from "@/modules/sales/shared/components/ui/form-field";
 import type { InvoiceFormValues } from "../../types/invoice-form.types";
 import type { InvoiceType } from "../../types/invoice.types";
+import { sanitizeBusinessLogo } from "../../utils/invoice-form.utils";
 
 const INVOICE_TYPES: { value: InvoiceType; label: string }[] = [
   { value: "B2B", label: "B2B" },
@@ -54,29 +52,23 @@ export function InvoiceIssuerFields() {
   const country = useWatch({ control, name: "sellerCountry" });
   const logo = useWatch({ control, name: "businessLogo" });
 
-  const bankName = useWatch({ control, name: "sellerBankName" });
-  const bankAcc = useWatch({ control, name: "sellerBankAccountNumber" });
-  const bankIfsc = useWatch({ control, name: "sellerBankIFSC" });
-  const bankBranch = useWatch({ control, name: "sellerBankBranch" });
-  const upiId = useWatch({ control, name: "sellerUPIId" });
-  const showBank = !!useWatch({ control, name: "showBankDetails" });
-  const showUpi = !!useWatch({ control, name: "showUPIDetails" });
   const invoiceType =
     (useWatch({ control, name: "invoiceType" }) as InvoiceType) || "B2B";
 
-  const hasBank = !!(bankName || bankAcc || bankIfsc || bankBranch);
-  const hasUpi = !!upiId;
   const address = [a1, a2, city, state, pincode, country]
     .filter(Boolean)
     .join(", ");
 
   const onLogoFile = (file: File | undefined) => {
     if (!file || file.size > 1_500_000) return;
+    // Only allow common image mime types
+    if (!/^image\/(jpeg|jpg|png|webp|gif)$/i.test(file.type || "")) return;
     const reader = new FileReader();
-    reader.onload = () =>
-      setValue("businessLogo", String(reader.result || ""), {
-        shouldDirty: true,
-      });
+    reader.onload = () => {
+      const cleaned = sanitizeBusinessLogo(reader.result);
+      if (!cleaned) return;
+      setValue("businessLogo", cleaned, { shouldDirty: true });
+    };
     reader.readAsDataURL(file);
   };
 
@@ -161,52 +153,6 @@ export function InvoiceIssuerFields() {
         </div>
       </div>
 
-      {/* Bank: toggle → details → UPI toggle → UPI details */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-slate-700">
-            <Landmark className="h-3.5 w-3.5" /> Show bank details on document
-          </span>
-          <Switch
-            checked={showBank}
-            disabled={!hasBank}
-            onCheckedChange={(v) =>
-              setValue("showBankDetails", v, { shouldDirty: true })
-            }
-          />
-        </div>
-        {hasBank ? (
-          <div className="space-y-1 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-700">
-            {bankName ? <p className="font-medium">{bankName}</p> : null}
-            {bankAcc ? <p>A/C: {bankAcc}</p> : null}
-            {bankIfsc ? <p>IFSC: {bankIfsc}</p> : null}
-            {bankBranch ? <p>Branch: {bankBranch}</p> : null}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400">No bank details on file.</p>
-        )}
-
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5">
-          <span className="flex items-center gap-2 text-xs font-medium text-slate-700">
-            <Smartphone className="h-3.5 w-3.5" /> Show UPI on document
-          </span>
-          <Switch
-            checked={showUpi}
-            disabled={!hasUpi}
-            onCheckedChange={(v) =>
-              setValue("showUPIDetails", v, { shouldDirty: true })
-            }
-          />
-        </div>
-        {hasUpi ? (
-          <div className="rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-700">
-            UPI: {upiId}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400">No UPI on file.</p>
-        )}
-      </div>
-
       {/* Invoice-specific: type, currency, date */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
@@ -272,11 +218,6 @@ export function InvoiceIssuerFields() {
           "sellerStateCode",
           "sellerPincode",
           "sellerCountry",
-          "sellerBankName",
-          "sellerBankAccountNumber",
-          "sellerBankIFSC",
-          "sellerBankBranch",
-          "sellerUPIId",
           "businessLogo",
           "currency",
         ] as const

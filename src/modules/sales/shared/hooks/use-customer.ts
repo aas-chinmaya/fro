@@ -18,7 +18,7 @@ export function useCustomer(autoFetch = true) {
     fetchCustomers,
     selectCustomer,
   } = useCustomers(autoFetch);
-
+// console.log(customers)
   return {
     customers: customers ?? [],
     selectedCustomer: selectedCustomer ?? null,

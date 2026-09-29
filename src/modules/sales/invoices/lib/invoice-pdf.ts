@@ -138,7 +138,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(12);
   pdf.setTextColor(BLACK);
-  pdf.text("QUOTATION", pageW / 2, y, { align: "center" });
+  pdf.text("INVOICE", pageW / 2, y, { align: "center" });
   y += 4.5;
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
@@ -152,6 +152,22 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   y += 3.5;
   hLine(y, BLACK, 0.35);
   y += 0.5;
+
+  // Business logo (optional data-URL or https)
+  const logo = (invoice as { businessLogo?: string | null }).businessLogo?.trim();
+  if (logo && (logo.startsWith("data:image/") || /^https?:\/\//i.test(logo))) {
+    try {
+      const fmt = logo.includes("png")
+        ? "PNG"
+        : logo.includes("webp")
+          ? "WEBP"
+          : "JPEG";
+      // Place logo top-left inside border
+      pdf.addImage(logo, fmt as "PNG" | "JPEG" | "WEBP", m + 2, y + 1, 18, 18);
+    } catch {
+      // ignore invalid logo
+    }
+  }
 
   // Meta — 3 equal columns
   const metaH = 9;
@@ -296,7 +312,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   items.forEach((item, idx) => {
     const { qty, price, discountAmt, taxRate, cgst, sgst, igst, total } =
       lineNums(item, isInter);
-    const hsn = String((item as { hsnSac?: string; hsnSacCode?: string }).hsnSac || (item as { hsnSacCode?: string }).hsnSacCode || "—").slice(0, 12);
+    const hsn = String(item.hsnSacCode || (item as { hsnSac?: string }).hsnSac || "—").slice(0, 12);
     const name = String(item.itemName || "—");
     const desc = item.description ? String(item.description) : "";
 

@@ -51,19 +51,10 @@ export function InvoiceForm({
 
   const handleReset = () => {
     if (mode === "edit" && invoice) {
-      reset(
-        mapInvoiceToFormValues(
-          invoice,
-          session?.business?.id,
-          session?.user?.id,
-        ),
-      );
+      reset(mapInvoiceToFormValues(invoice));
     } else {
       reset({
-        ...getDefaultInvoiceValues(
-          session?.business?.id ?? "",
-          session?.user?.id ?? "",
-        ),
+        ...getDefaultInvoiceValues(),
         ...getSessionFormDefaults(session),
       });
     }
@@ -85,16 +76,9 @@ export function InvoiceForm({
     resolver: zodResolver(invoiceCreateSchema) as unknown as Resolver<InvoiceFormValues>,
     defaultValues:
       mode === "edit" && invoice
-        ? mapInvoiceToFormValues(
-            invoice,
-            session?.business?.id,
-            session?.user?.id,
-          )
+        ? mapInvoiceToFormValues(invoice)
         : {
-            ...getDefaultInvoiceValues(
-              session?.business?.id ?? "",
-              session?.user?.id ?? "",
-            ),
+            ...getDefaultInvoiceValues(),
             ...sessionDefaults,
           },
     mode: "onChange",
@@ -126,7 +110,10 @@ export function InvoiceForm({
   // Instant totals — any line change / tax type change
   useEffect(() => {
     const current = form.getValues();
-    const withTotals = applyTotalsToValues(current);
+    // Auto nearest-rupee when round-off still at 0 (default on); otherwise keep
+    const enableRound =
+      Number(current.roundOffAmount) === 0 ? true : undefined;
+    const withTotals = applyTotalsToValues(current, enableRound);
 
     setValue("totalItems", withTotals.totalItems, { shouldDirty: false });
     setValue("totalQuantity", withTotals.totalQuantity, { shouldDirty: false });
@@ -137,7 +124,7 @@ export function InvoiceForm({
     setValue("cgstAmount", withTotals.cgstAmount, { shouldDirty: false });
     setValue("sgstAmount", withTotals.sgstAmount, { shouldDirty: false });
     setValue("igstAmount", withTotals.igstAmount, { shouldDirty: false });
-    setValue("cessAmount", withTotals.cessAmount, { shouldDirty: false });
+    setValue("cessAmount", withTotals.cessAmount ?? 0, { shouldDirty: false });
     setValue("roundOffAmount", withTotals.roundOffAmount, {
       shouldDirty: false,
     });
@@ -147,6 +134,12 @@ export function InvoiceForm({
       setValue(`items.${i}.taxAmount`, line.taxAmount, { shouldDirty: false });
       setValue(`items.${i}.amount`, line.amount, { shouldDirty: false });
       setValue(`items.${i}.total`, line.total, { shouldDirty: false });
+      setValue(`items.${i}.taxableAmount`, line.taxableAmount, {
+        shouldDirty: false,
+      });
+      setValue(`items.${i}.discountValue`, line.discountValue, {
+        shouldDirty: false,
+      });
       setValue(`items.${i}.cgstRate`, line.cgstRate, { shouldDirty: false });
       setValue(`items.${i}.cgstAmount`, line.cgstAmount, {
         shouldDirty: false,
@@ -165,30 +158,26 @@ export function InvoiceForm({
 
   useEffect(() => {
     if (mode === "edit" && invoice) {
-      reset(
-        mapInvoiceToFormValues(
-          invoice,
-          session?.business?.id,
-          session?.user?.id,
-        ),
-      );
+      const mapped = mapInvoiceToFormValues(invoice);
+      const sessionBank = getSessionFormDefaults(session);
+      if (!mapped.businessLogo && sessionBank.businessLogo) {
+        mapped.businessLogo = sessionBank.businessLogo;
+      }
+reset(mapped);
     }
-  }, [mode, invoice, reset, session?.business?.id, session?.user?.id]);
+  }, [mode, invoice, reset, session]);
 
   useEffect(() => {
     if (mode !== "create" || !session) return;
     const current = form.getValues();
     if (!current.sellerTradeName && session.business?.name) {
       reset({
-        ...getDefaultInvoiceValues(
-          session.business?.id ?? "",
-          session.user?.id ?? "",
-        ),
+        ...getDefaultInvoiceValues(),
         ...getSessionFormDefaults(session),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, session?.business?.id, session?.user?.id]);
+  }, [mode, session?.business?.id]);
 
 
   const firstErrorMessage = (
@@ -207,7 +196,6 @@ export function InvoiceForm({
       invoiceDate: "Invoice date",
       invoiceDate: "Invoice date",
       termsAndConditions: "Terms & conditions",
-      signature: "Authorized signatory",
       items: "Product items",
       sellerTradeName: "Business name",
       transactionId: "Transaction / reference ID",
@@ -279,22 +267,16 @@ export function InvoiceForm({
 
     if (status === "FINALIZED") {
       const terms = (values.termsAndConditions || "").replace(/<[^>]+>/g, "").trim();
-      const sig = values.signature;
       if (!terms) {
         notify.error("Terms & conditions are required to finalize");
         return;
       }
-      if (!sig) {
-        notify.error("Signature is required to finalize");
-        return;
-      }
     }
 
-    const withStatus = { ...values, status };
+    const withStatus = { ...values, status, invoiceStatus: status };
 
     try {
       if (mode === "create") {
-        // Never send tenantId / branchId / createdBy — backend uses auth
         const payload = sanitizeCreatePayload(withStatus);
         const res = await createInvoice(payload).unwrap();
         notify.success(

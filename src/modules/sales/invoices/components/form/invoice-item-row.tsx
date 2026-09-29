@@ -60,7 +60,7 @@ export function InvoiceItemRow({
   const unit = useWatch({ control, name: `${prefix}.unit` }) ?? "PCS";
   const description =
     useWatch({ control, name: `${prefix}.description` }) ?? "";
-  const hsnSac = useWatch({ control, name: `${prefix}.hsnSac` }) ?? "";
+  const hsnSacCode = useWatch({ control, name: `${prefix}.hsnSacCode` }) ?? "";
   const stockAvailable = useWatch({
     control,
     name: `${prefix}.stockAvailable`,
@@ -115,13 +115,14 @@ export function InvoiceItemRow({
     setValue(`${prefix}.itemId`, null, { shouldDirty: true });
     setValue(`${prefix}.itemName`, "", { shouldDirty: true });
     setValue(`${prefix}.description`, null, { shouldDirty: true });
-    setValue(`${prefix}.hsnSac`, null, { shouldDirty: true });
+    setValue(`${prefix}.hsnSacCode`, null, { shouldDirty: true });
     setValue(`${prefix}.rate`, 0, { shouldDirty: true });
     setValue(`${prefix}.price`, 0, { shouldDirty: true });
     setValue(`${prefix}.quantity`, 1, { shouldDirty: true });
     setValue(`${prefix}.unit`, "PCS", { shouldDirty: true });
     setValue(`${prefix}.taxRate`, 18, { shouldDirty: true });
     setValue(`${prefix}.discount`, 0, { shouldDirty: true });
+    setValue(`${prefix}.discountValue`, 0, { shouldDirty: true });
     setValue(`${prefix}.stockAvailable`, null, { shouldDirty: true });
   };
 
@@ -130,10 +131,29 @@ export function InvoiceItemRow({
       clearLine();
       return;
     }
+    const anyItem = item as Record<string, unknown>;
+    const name = sanitizePlainText(item.name, 200);
     setValue(`${prefix}.itemId`, item.id, { shouldDirty: true });
-    setValue(`${prefix}.itemName`, sanitizePlainText(item.name, 200), {
-      shouldDirty: true,
-    });
+    setValue(`${prefix}.productId`, item.id, { shouldDirty: true });
+    setValue(`${prefix}.itemName`, name, { shouldDirty: true });
+    setValue(`${prefix}.productName`, name, { shouldDirty: true });
+    setValue(
+      `${prefix}.itemCode`,
+      sanitizePlainText(
+        String(anyItem.itemCode ?? anyItem.sku ?? anyItem.code ?? item.id ?? ""),
+        50,
+      ) || "NA",
+      { shouldDirty: true },
+    );
+    setValue(
+      `${prefix}.classification`,
+      String(anyItem.classification || anyItem.type || "GOODS")
+        .toUpperCase()
+        .includes("SERVICE")
+        ? "SERVICES"
+        : "GOODS",
+      { shouldDirty: true },
+    );
     setValue(
       `${prefix}.description`,
       item.description
@@ -141,14 +161,22 @@ export function InvoiceItemRow({
         : null,
       { shouldDirty: true },
     );
-    setValue(
-      `${prefix}.hsnSac`,
-      item.hsnSac
-        ? sanitizePlainText(item.hsnSac, 12).replace(/[^0-9A-Za-z]/g, "") ||
-            null
-        : null,
-      { shouldDirty: true },
-    );
+    const hsnClean = sanitizePlainText(
+      String(
+        anyItem.hsnSacCode ??
+          anyItem.hsnSac ??
+          anyItem.hsn ??
+          anyItem.hsnCode ??
+          anyItem.sac ??
+          anyItem.sacCode ??
+          "",
+      ),
+      12,
+    ).replace(/[^0-9A-Za-z]/g, "");
+    setValue(`${prefix}.hsnSacCode`, hsnClean || "NA", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setValue(`${prefix}.rate`, item.rate, { shouldDirty: true });
     setValue(`${prefix}.price`, item.rate, { shouldDirty: true });
     setValue(
@@ -158,6 +186,7 @@ export function InvoiceItemRow({
     );
     const tax = Number(item.taxRate) || 18;
     setValue(`${prefix}.taxRate`, tax, { shouldDirty: true });
+    setValue(`${prefix}.gstRate`, tax, { shouldDirty: true });
     if (item.cgstRate != null) {
       setValue(`${prefix}.cgstRate`, Number(item.cgstRate) || 0, {
         shouldDirty: true,
@@ -203,21 +232,20 @@ export function InvoiceItemRow({
       discountType === "PERCENTAGE"
         ? 100
         : Math.min(MAX_PRICE, unitPrice * (Number(quantity) || 0) || MAX_PRICE);
-    setValue(`${prefix}.discount`, Math.min(v, maxDisc), { shouldDirty: true });
+    const d = Math.min(v, maxDisc);
+    // Keep both aliases in sync (form + payload use discountValue)
+    setValue(`${prefix}.discount`, d, { shouldDirty: true });
+    setValue(`${prefix}.discountValue`, d, { shouldDirty: true });
   };
 
   const setSafeText = (
-    field: "itemName" | "description" | "hsnSac",
+    field: "itemName" | "description" | "hsnSacCode",
     raw: string,
     max: number,
   ) => {
     let clean = sanitizePlainText(raw, max);
-    if (field === "hsnSac") {
+    if (field === "hsnSacCode") {
       clean = clean.replace(/[^0-9A-Za-z]/g, "").slice(0, 12);
-      // Keep hsnSacCode in sync (quotation naming) for API compatibility
-      setValue(`${prefix}.hsnSacCode` as `items.${number}.hsnSacCode`, clean || null, {
-        shouldDirty: true,
-      });
     }
     setValue(
       `${prefix}.${field}`,
@@ -290,10 +318,10 @@ export function InvoiceItemRow({
         {/* Row-1 fields: HSN Qty UOM Price Disc Tax Total(placeholder align) */}
         <div>
           <input
-            value={hsnSac || ""}
+            value={hsnSacCode || ""}
             maxLength={12}
             placeholder="HSN/SAC"
-            onChange={(e) => setSafeText("hsnSac", e.target.value, 12)}
+            onChange={(e) => setSafeText("hsnSacCode", e.target.value, 12)}
             className={`${cell} text-center`}
           />
         </div>
@@ -402,10 +430,10 @@ export function InvoiceItemRow({
               HSN / SAC
             </label>
             <input
-              value={hsnSac || ""}
+              value={hsnSacCode || ""}
               maxLength={12}
               placeholder="—"
-              onChange={(e) => setSafeText("hsnSac", e.target.value, 12)}
+              onChange={(e) => setSafeText("hsnSacCode", e.target.value, 12)}
               className={`${cell} text-center`}
             />
           </div>

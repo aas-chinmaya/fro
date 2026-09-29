@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { notify } from "@/lib/toast";
 import {
   useGetInvoiceByIdQuery,
-  useUpdateInvoiceStatusMutation,
   useDownloadInvoicePdfMutation,
 } from "../../api/invoice.api";
 import type { Invoice } from "../../types/invoice.types";
@@ -29,10 +28,6 @@ export function InvoiceView({ id }: InvoiceViewProps) {
     error: queryError,
   } = useGetInvoiceByIdQuery(id, { skip: !id });
 
-  const [updateStatus, { isLoading: statusLoading }] =
-    useUpdateInvoiceStatusMutation();
-
-  /** Backend PDF API kept for future use */
   const [, { isLoading: apiPdfLoading }] = useDownloadInvoicePdfMutation();
 
   const invoiceFromQuery = response?.data ?? null;
@@ -51,26 +46,6 @@ export function InvoiceView({ id }: InvoiceViewProps) {
   useEffect(() => {
     if (error && !invoice) notify.error(error);
   }, [error, invoice]);
-
-  const handleStatusChange = async (
-    status: "PAID" | "CANCELLED",
-    statusNote?: string,
-  ) => {
-    if (!invoice?.id) return;
-    try {
-      const res = await updateStatus({
-        id: invoice.id,
-        data: {
-          status,
-          ...(statusNote ? { statusNote } : {}),
-        },
-      }).unwrap();
-      notify.success(res.message || `Status updated to ${status}`);
-    } catch (err: unknown) {
-      const e = err as { data?: { message?: string }; message?: string };
-      notify.error(e?.data?.message || e?.message || "Failed to update status");
-    }
-  };
 
   const handleDownload = () => {
     if (!invoice) return;
@@ -115,9 +90,7 @@ export function InvoiceView({ id }: InvoiceViewProps) {
     <div className="flex w-full flex-col bg-white">
       <InvoiceViewHeader
         invoice={invoice}
-        onStatusChange={handleStatusChange}
         onDownload={handleDownload}
-        statusLoading={statusLoading}
         downloadLoading={pdfBusy || apiPdfLoading}
       />
       <main className="w-full">

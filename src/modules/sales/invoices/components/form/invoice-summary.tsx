@@ -8,8 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/editor";
 import type { InvoiceFormValues } from "../../types/invoice-form.types";
 import type { TaxType } from "../../types/invoice.types";
-import { formatINR, amountInWords } from "../../utils/invoice-form.utils";
-import { InvoiceSignatureSection } from "./invoice-signature-section";
+import { formatINR, amountInWords, applyTotalsToValues } from "../../utils/invoice-form.utils";
 import { InvoicePaymentSection } from "./invoice-payment-section";
 
 function SumRow({
@@ -66,24 +65,46 @@ function SumRow({
 }
 
 export function InvoiceSummary() {
-  const { control, setValue, watch } = useFormContext<InvoiceFormValues>();
+  const { control, setValue, watch, getValues } = useFormContext<InvoiceFormValues>();
 
   const taxType = (useWatch({ control, name: "taxType" }) ??
     "INTRA_STATE") as TaxType;
   const isInter = taxType === "INTER_STATE";
 
-  const taxableAmount = useWatch({ control, name: "taxableAmount" }) ?? 0;
-  const discountAmount = useWatch({ control, name: "discountAmount" }) ?? 0;
-  const cgstAmount = useWatch({ control, name: "cgstAmount" }) ?? 0;
-  const sgstAmount = useWatch({ control, name: "sgstAmount" }) ?? 0;
-  const igstAmount = useWatch({ control, name: "igstAmount" }) ?? 0;
-  const roundOffAmount = useWatch({ control, name: "roundOffAmount" }) ?? 0;
-  const grandTotal = useWatch({ control, name: "grandTotal" }) ?? 0;
+  // Watch items deeply so summary updates on every qty/rate/discount change
+  const items = useWatch({ control, name: "items" }) ?? [];
+  const formRoundOff = useWatch({ control, name: "roundOffAmount" }) ?? 0;
 
   const terms = watch("termsAndConditions") ?? "";
   const notes = watch("notes") ?? "";
 
   const [roundOffOn, setRoundOffOn] = useState(true);
+
+  // Live totals from items (source of truth) — does not wait for parent effect
+  const live = (() => {
+    const withTotals = applyTotalsToValues(
+      { ...getValues(), items, taxType, roundOffAmount: formRoundOff } as InvoiceFormValues,
+      roundOffOn ? true : false,
+    );
+    return {
+      taxableAmount: withTotals.taxableAmount ?? 0,
+      discountAmount: withTotals.discountAmount ?? 0,
+      cgstAmount: withTotals.cgstAmount ?? 0,
+      sgstAmount: withTotals.sgstAmount ?? 0,
+      igstAmount: withTotals.igstAmount ?? 0,
+      roundOffAmount: withTotals.roundOffAmount ?? 0,
+      grandTotal: withTotals.grandTotal ?? 0,
+    };
+  })();
+  const {
+    taxableAmount,
+    discountAmount,
+    cgstAmount,
+    sgstAmount,
+    igstAmount,
+    roundOffAmount,
+    grandTotal,
+  } = live;
 
   return (
     <div className="space-y-5">
@@ -152,9 +173,14 @@ export function InvoiceSummary() {
                     checked={roundOffOn}
                     onCheckedChange={(v) => {
                       setRoundOffOn(v);
-                      if (!v) {
-                        setValue("roundOffAmount", 0, { shouldDirty: true });
-                      }
+                      const current = getValues();
+                      const next = applyTotalsToValues(current, v);
+                      setValue("roundOffAmount", next.roundOffAmount ?? 0, {
+                        shouldDirty: true,
+                      });
+                      setValue("grandTotal", next.grandTotal ?? 0, {
+                        shouldDirty: false,
+                      });
                     }}
                   />
                 </div>
@@ -176,7 +202,6 @@ export function InvoiceSummary() {
             </div>
           </div>
 
-          <InvoiceSignatureSection compact />
         </div>
       </div>
 

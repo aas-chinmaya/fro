@@ -1,6 +1,7 @@
 "use client";
 
-import type { Invoice, InvoiceStatus } from "../../../types/invoice.types";
+import type { Invoice } from "../../../types/invoice.types";
+import { StatusBadge } from "@/modules/sales/shared/components/ui/status-badge";
 import { InvoiceItemsTable } from "./invoice-items-table";
 import { InvoiceSummary } from "./invoice-summary";
 import { InvoiceSignature } from "./invoice-signature";
@@ -9,19 +10,6 @@ import { amountInWords } from "@/modules/sales/shared/utils/amount-in-words";
 interface InvoiceDocumentProps {
   invoice: Invoice;
 }
-
-const STATUS_BADGE: Record<
-  InvoiceStatus,
-  { className: string; label: string }
-> = {
-  DRAFT: { className: "bg-ink-muted", label: "Draft" },
-  FINALIZED: { className: "bg-accent", label: "Finalized" },
-  SENT: { className: "bg-accent", label: "Sent" },
-  PAID: { className: "bg-add", label: "Paid" },
-  PARTIALLY_PAID: { className: "bg-accent", label: "Partially Paid" },
-  OVERDUE: { className: "bg-remove", label: "Overdue" },
-  CANCELLED: { className: "bg-remove", label: "Cancelled" },
-};
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
@@ -61,8 +49,7 @@ function InfoRow({
 }
 
 export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
-  const status = invoice.invoiceStatus;
-  const badge = STATUS_BADGE[status] ?? STATUS_BADGE.DRAFT;
+  const logo = invoice.businessLogo?.trim() || null;
 
   const businessAddress = formatAddress([
     invoice.sellerAddressLine1,
@@ -98,21 +85,26 @@ export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
       <div className="border border-slate-800">
         {/* Header */}
         <div className="flex min-h-[80px] flex-wrap items-center justify-between gap-3 px-3 py-4 sm:min-h-[100px] sm:px-6 sm:py-5 md:px-8 md:py-6">
-          <div className="flex h-[56px] w-[90px] items-center justify-center sm:h-[72px] sm:w-[110px]">
-            <div className="text-center font-serif text-[32px] leading-none tracking-[-4px] text-[#b4a35b] sm:text-[40px] sm:tracking-[-6px]">
-              AAS
-            </div>
+          <div className="flex h-[56px] min-w-[90px] items-center justify-center sm:h-[72px] sm:min-w-[110px]">
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logo}
+                alt={invoice.sellerTradeName || invoice.sellerLegalName || "Logo"}
+                className="max-h-full max-w-[120px] object-contain sm:max-w-[140px]"
+              />
+            ) : (
+              <div className="text-center text-sm font-semibold text-slate-700">
+                {invoice.sellerTradeName || invoice.sellerLegalName || "—"}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-[16px] font-normal text-slate-700 sm:text-[18px] md:text-[20px]">
               Invoice
             </span>
-            <span
-              className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:px-2.5 sm:py-1 sm:text-[11px] ${badge.className}`}
-            >
-              {badge.label}
-            </span>
+            <StatusBadge status={invoice.invoiceStatus} />
           </div>
         </div>
 

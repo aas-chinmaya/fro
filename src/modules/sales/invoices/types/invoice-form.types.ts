@@ -24,7 +24,6 @@ export interface InvoiceItemFormValues {
   productName?: string;
   itemCode?: string;
   unit?: string;
-  hsnSac?: string;
   hsnSacCode?: string;
   classification?: "GOODS" | "SERVICES";
   quantity: number;
@@ -62,6 +61,7 @@ export interface InvoiceFormValues {
   invoiceStatus?: InvoiceStatus;
   invoiceSource?: string;
 
+  customerId?: string | null;
   buyerName: string;
   buyerCompanyName?: string;
   buyerGSTIN?: string;
@@ -120,7 +120,6 @@ export interface InvoiceFormValues {
 
   notes?: string | null;
   termsAndConditions: string;
-  signature?: string | null;
 
   // Seller snapshot (read-only from session, sent for document print)
   sellerLegalName?: string;
@@ -136,13 +135,6 @@ export interface InvoiceFormValues {
   sellerStateCode?: string;
   sellerPincode?: string;
   sellerCountry?: string;
-  sellerBankName?: string;
-  sellerBankAccountNumber?: string;
-  sellerBankIFSC?: string;
-  sellerBankBranch?: string;
-  sellerUPIId?: string;
-  showBankDetails?: boolean;
-  showUPIDetails?: boolean;
   businessLogo?: string | null;
 
   status?: InvoiceStatus;

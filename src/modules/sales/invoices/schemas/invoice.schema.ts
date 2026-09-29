@@ -108,7 +108,6 @@ export const invoiceItemSchema = z.object({
   productName: z.string().max(LIMITS.NAME).optional(),
   itemCode: z.string().optional(),
   description: optionalSafeText(LIMITS.DESCRIPTION),
-  hsnSac: optionalSafeText(LIMITS.HSN),
   hsnSacCode: optionalSafeText(LIMITS.HSN),
   unit: optionalSafeText(LIMITS.UNIT),
   classification: z.enum(["GOODS", "SERVICES"]).optional(),
@@ -206,7 +205,6 @@ export const invoiceBaseSchema = z.object({
     LIMITS.TERMS_HTML,
     "Terms & conditions are required",
   ),
-  signature: z.string().nullable().optional(),
 
   sellerLegalName: optionalSafeText(LIMITS.COMPANY),
   sellerTradeName: optionalSafeText(LIMITS.COMPANY),
@@ -221,14 +219,20 @@ export const invoiceBaseSchema = z.object({
   sellerStateCode: optionalSafeText(10),
   sellerPincode: optionalSafeText(12),
   sellerCountry: optionalSafeText(LIMITS.CITY),
-  sellerBankName: optionalSafeText(LIMITS.COMPANY),
-  sellerBankAccountNumber: optionalSafeText(40),
-  sellerBankIFSC: optionalSafeText(20),
-  sellerBankBranch: optionalSafeText(LIMITS.CITY),
-  sellerUPIId: optionalSafeText(100),
-  showBankDetails: z.boolean().optional().default(false),
-  showUPIDetails: z.boolean().optional().default(false),
-  businessLogo: z.string().max(500_000).nullable().optional(),
+  businessLogo: z
+    .union([z.string().max(500_000), z.null()])
+    .optional()
+    .transform((v) => {
+      if (v == null || v === "") return null;
+      const s = String(v).trim();
+      if (!s) return null;
+      if (/^https?:\/\//i.test(s)) {
+        if (s.length > 2000 || /[<>"']/.test(s)) return null;
+        return s.slice(0, 2000);
+      }
+      if (!/^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(s)) return null;
+      return s.length <= 500_000 ? s : null;
+    }),
 
   status: invoiceStatusSchema.optional().default("DRAFT"),
 });
