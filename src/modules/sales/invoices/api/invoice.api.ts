@@ -5,6 +5,7 @@ import type {
   InvoiceCreatePayload,
   InvoiceListParams,
   InvoiceListResponse,
+  InvoiceOptionsParams,
   InvoiceResponse,
   InvoiceStatusChangePayload,
   InvoiceUpdatePayload,
@@ -147,6 +148,18 @@ export const invoiceApi = baseApi.injectEndpoints({
       ],
     }),
 
+    //on demand query 
+    getInvoiceOptions: builder.query<
+      InvoiceListResponse,
+      InvoiceOptionsParams
+    >({
+      query: (params) => ({
+        url: `${INVOICE_ENDPOINT}/options`,
+        method: "GET",
+        params,
+      }),
+      transformResponse: (response: unknown) => unwrapList(response),
+    }),
     createInvoice: builder.mutation<
       InvoiceResponse,
       InvoiceCreatePayload
@@ -248,6 +261,7 @@ export const invoiceApi = baseApi.injectEndpoints({
 export const {
   useGetInvoicesQuery,
   useGetInvoiceByIdQuery,
+  useGetInvoiceOptionsQuery,
   useCreateInvoiceMutation,
   useUpdateInvoiceMutation,
   useUpdateInvoiceStatusMutation,

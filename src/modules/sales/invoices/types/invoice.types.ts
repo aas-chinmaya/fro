@@ -195,6 +195,9 @@ export interface InvoiceResponse {
   data: Invoice;
 }
 
+
+
+
 /** Create payload — never include tenantId / createdBy / businessId (backend auth) */
 export interface InvoiceCreatePayload {
   invoiceType?: InvoiceType;
@@ -265,4 +268,13 @@ export type InvoiceUpdatePayload = Partial<InvoiceCreatePayload>;
 export interface InvoiceStatusChangePayload {
   status: string;
   remarks?: string;
+}
+
+
+
+
+export interface InvoiceOptionsParams {
+  customerId?: string;
+  paymentStatus?: PaymentStatus;
+  search?: string;
 }

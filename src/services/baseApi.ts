@@ -66,6 +66,7 @@ tagTypes: [
 
     "Invoices",
     "PaymentReceipts",
+    "SalesBillingAnalytics",
     
     "PaymentAdjustments",
     "CreditNotes",
