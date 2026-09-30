@@ -52,6 +52,23 @@ function num(v: unknown) {
   return Number(v) || 0;
 }
 
+
+export function normalizePaymentMethod(raw: unknown): string {
+  const s = String(raw || "CASH").trim().toUpperCase().replace(/\s+/g, "_");
+  const map: Record<string, string> = {
+    CASH: "CASH",
+    UPI: "UPI",
+    CARD: "CARD",
+    NET_BANKING: "NET_BANKING",
+    NETBANKING: "NET_BANKING",
+    BANK_TRANSFER: "NET_BANKING",
+    BANKTRANSFER: "NET_BANKING",
+    CHEQUE: "CASH",
+    OTHER: "CASH",
+  };
+  return map[s] || "CASH";
+}
+
 export function sanitizeBusinessLogo(raw: unknown): string | null {
   if (raw == null) return null;
   const s = String(raw).trim();
@@ -128,7 +145,7 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
     buyerEmail: null,
     buyerGSTIN: "",
     buyerPAN: "",
-    buyerType: "REGISTERED",
+    buyerType: "UNREGISTERED",
     buyerContactPerson: "",
     billingAddressLine1: "",
     billingAddressLine2: "",
@@ -158,7 +175,7 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
     roundOffAmount: 0,
     grandTotal: 0,
     paymentStatus: "PENDING",
-    paymentMethod: "Cash",
+    paymentMethod: "CASH",
     paidAmount: 0,
     pendingAmount: 0,
     paymentDate: null,
@@ -270,7 +287,7 @@ export function mapInvoiceToFormValues(
     roundOffAmount: num(inv.roundOffAmount),
     grandTotal: num(inv.grandTotal),
     paymentStatus: inv.paymentStatus || "PENDING",
-    paymentMethod: inv.paymentMethod || "Cash",
+    paymentMethod: normalizePaymentMethod(inv.paymentMethod),
     paidAmount: num(inv.paidAmount),
     pendingAmount: num(inv.pendingAmount),
     paymentDate: inv.paymentDate ? String(inv.paymentDate).slice(0, 10) : null,
@@ -441,37 +458,73 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
   const pending = Math.max(Math.round((grand - paid) * 100) / 100, 0);
 
   // Use recomputed items for line amounts
-  const lineItems = recomputed.items || rest.items || [];
+  let lineItems = (recomputed.items || rest.items || []).filter(
+    (it) => (it.itemName || it.productName || "").trim().length > 0,
+  );
+
+  const statusUpper = String(
+    rest.status || rest.invoiceStatus || "DRAFT",
+  ).toUpperCase();
+  const isDraft = statusUpper === "DRAFT";
+
+
+  // Soft defaults for draft so backend required fields don't block partial save
+  const draftPhone =
+    String(rest.buyerPhone || "").trim() ||
+    (isDraft ? "0000000000" : "");
+  const draftName =
+    String(rest.buyerName || "").trim() ||
+    (isDraft ? "Draft customer" : "");
+  const draftAddr =
+    String(rest.billingAddressLine1 || "").trim() ||
+    (isDraft ? "—" : "");
+  const draftCity =
+    String(rest.billingCity || "").trim() || (isDraft ? "—" : "");
+  const draftPin =
+    String(rest.billingPincode || "").trim() ||
+    (isDraft ? "000000" : "");
+  const draftState =
+    String(rest.billingState || "").trim() || (isDraft ? "—" : "");
+  const draftCountry =
+    String(rest.billingCountry || "").trim() ||
+    (isDraft ? "India" : "India");
+  const draftPos =
+    String(rest.placeOfSupply || "").trim() ||
+    draftState ||
+    (isDraft ? "—" : "");
 
   return {
     invoiceType: rest.invoiceType || "B2B",
-    invoiceDate: toIsoDateTime(rest.invoiceDate as string) || rest.invoiceDate,
+    invoiceDate:
+      toIsoDateTime(rest.invoiceDate as string) ||
+      (isDraft
+        ? new Date().toISOString()
+        : rest.invoiceDate || null),
     financialYear: rest.financialYear || null,
     // Backend accepts either; send both for compatibility with past API
     status: rest.status || rest.invoiceStatus || "DRAFT",
     invoiceStatus: rest.invoiceStatus || rest.status || "DRAFT",
     customerId: (rest as { customerId?: string | null }).customerId || null,
-    buyerName: rest.buyerName,
+    buyerName: draftName || rest.buyerName,
     buyerCompanyName: rest.buyerCompanyName || null,
     buyerGSTIN: rest.buyerGSTIN || null,
     buyerPAN: rest.buyerPAN || null,
-    buyerPhone: rest.buyerPhone,
+    buyerPhone: draftPhone || rest.buyerPhone,
     buyerEmail: rest.buyerEmail || null,
     buyerType: (() => {
       const t = String(rest.buyerType || "").trim().toUpperCase();
-      if (t) return t;
-      // Past module defaulted to REGISTERED; backend requires non-empty
+      if (t === "REGISTERED" || t === "UNREGISTERED" || t === "EXPORT") return t;
       const gstin = String(rest.buyerGSTIN || "").trim();
       return gstin ? "REGISTERED" : "UNREGISTERED";
     })(),
     buyerContactPerson: rest.buyerContactPerson || rest.buyerName || null,
-    billingAddressLine1: rest.billingAddressLine1,
+    billingAddressLine1: draftAddr || rest.billingAddressLine1,
     billingAddressLine2: rest.billingAddressLine2 || null,
-    billingCity: rest.billingCity,
-    billingState: rest.billingState,
+    billingCity: draftCity || rest.billingCity,
+    billingState: draftState || rest.billingState,
     billingStateCode: rest.billingStateCode || null,
-    billingPincode: rest.billingPincode,
-    billingCountry: rest.billingCountry || "India",
+    billingPincode: draftPin || rest.billingPincode,
+    billingCountry: draftCountry,
     sameAsBilling: rest.sameAsBilling ?? true,
     // Always send shipping: mirror billing when sameAsBilling
     shippingAddressLine1:
@@ -502,7 +555,7 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
       (rest.sameAsBilling ?? true)
         ? rest.billingCountry || "India"
         : rest.shippingCountry || null,
-    placeOfSupply: rest.placeOfSupply,
+    placeOfSupply: draftPos || rest.placeOfSupply,
     placeOfSupplyCode: rest.placeOfSupplyCode || null,
     taxType: rest.taxType || "INTRA_STATE",
     reverseCharge: rest.reverseCharge ?? false,
@@ -511,7 +564,12 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
     currency: "INR",
     exchangeRate: num(rest.exchangeRate) || 1,
     items: (lineItems || [])
-      .filter((it) => (it.itemName || it.productName || "").trim())
+      .filter((it) => {
+        const name = (it.itemName || it.productName || "").trim();
+        const pid = String(it.itemId || it.productId || "").trim();
+        // Must have a name; product id preferred (backend "Product missing" without it)
+        return !!name && (!!pid || isDraft);
+      })
       .map((it, index) => {
         const qty = num(it.quantity);
         const rate = num(it.rate ?? it.price);
@@ -579,9 +637,11 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
           lineNumber: index + 1,
         };
       }),
-    totalItems: (lineItems || []).filter((it) =>
-      (it.itemName || it.productName || "").trim(),
-    ).length,
+    totalItems: (lineItems || []).filter((it) => {
+      const name = (it.itemName || it.productName || "").trim();
+      const pid = String(it.itemId || it.productId || "").trim();
+      return !!name && (!!pid || isDraft);
+    }).length,
     totalQuantity: num(recomputed.totalQuantity),
     subtotal: Math.round(
       (lineItems || []).reduce((s, it) => {
@@ -589,14 +649,14 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
         return s + num(it.quantity) * num(it.rate ?? it.price);
       }, 0) * 100,
     ) / 100,
-    taxableAmount: rTaxable,
-    discountAmount: num(recomputed.discountAmount),
-    cgstAmount: rCgst,
-    sgstAmount: rSgst,
-    igstAmount: rIgst,
-    cessAmount: rCess,
-    roundOffAmount: rRound,
-    grandTotal: grand,
+    taxableAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rTaxable,
+    discountAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : num(recomputed.discountAmount),
+    cgstAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rCgst,
+    sgstAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rSgst,
+    igstAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rIgst,
+    cessAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rCess,
+    roundOffAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rRound,
+    grandTotal: isDraft && num(recomputed.totalItems) === 0 ? 0 : grand,
     // Seller / business snapshot from session (never hardcode)
     sellerTradeName: rest.sellerTradeName || null,
     sellerLegalName: rest.sellerLegalName || null,
@@ -612,7 +672,7 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
     sellerPincode: rest.sellerPincode || null,
     sellerCountry: rest.sellerCountry || "India",
     paymentStatus: rest.paymentStatus || "PENDING",
-    paymentMethod: rest.paymentMethod || "Cash",
+    paymentMethod: normalizePaymentMethod(rest.paymentMethod),
     paidAmount: paid,
     pendingAmount: pending,
     paymentDate: toIsoDateTime(rest.paymentDate as string | null) || null,
@@ -624,9 +684,9 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
       return n || null;
     })(),
     termsAndConditions: (() => {
-      // Preserve rich-text HTML like quotation; schema enforces plain length
       const t = String(rest.termsAndConditions || "").trim();
-      return t || "";
+      if (t) return t;
+      return isDraft ? "—" : "";
     })(),
   };
 }

@@ -12,7 +12,7 @@ export type InvoiceFormMode = "create" | "edit";
 export interface InvoiceFormProps {
   mode: InvoiceFormMode;
   invoice?: Invoice | null;
-  onSuccess?: (invoice: Invoice) => void;
+  onSuccess?: (invoice?: Invoice | null) => void;
   onCancel?: () => void;
 }
 

@@ -25,114 +25,148 @@ export function InvoiceItemsTable({
   const isInter = taxType === "INTER_STATE";
 
   return (
-    <table className="w-full border-collapse text-[10px] sm:text-[11px]">
-      <thead>
-        <tr className="border-t border-slate-800">
-          <th className="w-[28px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-medium">
-            #
-          </th>
-          <th className="min-w-[140px] border-r border-b border-slate-800 px-2 py-1.5 text-left font-medium">
-            Item
-          </th>
-          
-          <th className="w-[50px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-medium">
-            Qty
-          </th>
-          <th className="w-[40px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-medium">
-            Unit
-          </th>
-          <th className="w-[78px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-medium">
-            Rate
-          </th>
-          <th className="w-[90px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-medium">
-            Amount
-          </th>
-          {isInter ? (
-            <th className="w-[90px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-medium">
-              IGST
+    <div className="w-full overflow-x-auto">
+      <table className="w-full min-w-[720px] border-collapse text-[10px] sm:text-[11px]">
+        <thead>
+          <tr className="border-t border-slate-800 bg-slate-50">
+            <th className="w-[28px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-semibold text-slate-800">
+              #
             </th>
-          ) : (
-            <>
-              <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-medium">
-                CGST
+            <th className="min-w-[140px] border-r border-b border-slate-800 px-2 py-1.5 text-left font-semibold text-slate-800">
+              Item
+            </th>
+            <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-semibold text-slate-800">
+              HSN/SAC
+            </th>
+            <th className="w-[48px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-semibold text-slate-800">
+              Qty
+            </th>
+            <th className="w-[44px] border-r border-b border-slate-800 px-1 py-1.5 text-center font-semibold text-slate-800">
+              UOM
+            </th>
+            <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
+              Price
+            </th>
+            <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
+              Discount
+            </th>
+            {isInter ? (
+              <th className="w-[80px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
+                IGST
               </th>
-              <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-medium">
-                SGST
-              </th>
-            </>
-          )}
-          <th className="w-[90px] border-b border-slate-800 px-1 py-1.5 text-right font-medium">
-            Total
-          </th>
-        </tr>
-      </thead>
+            ) : (
+              <>
+                <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
+                  CGST
+                </th>
+                <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
+                  SGST
+                </th>
+              </>
+            )}
+            <th className="w-[84px] border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
+              Total
+            </th>
+          </tr>
+        </thead>
 
-      <tbody>
-        {(items || []).map((item, index) => {
-          const qty = num(item.quantity);
-          const rate = num(item.rate);
-          const taxRate = num(item.taxRate);
-          const taxable = qty * rate;
-          const tax = (taxable * taxRate) / 100;
-          const half = tax / 2;
-          const lineTotal = taxable + tax;
+        <tbody>
+          {(items || []).map((item, index) => {
+            const qty = num(item.quantity);
+            const rate = num(item.rate ?? item.price);
+            const discType = String(item.discountType || "PERCENTAGE").toUpperCase();
+            const discVal = num(item.discountValue ?? item.discount);
+            const gross = qty * rate;
+            const discountAmt =
+              num(item.discountAmount) ||
+              (discType === "FIXED"
+                ? Math.min(discVal, gross)
+                : (gross * discVal) / 100);
+            const taxable =
+              num(item.taxableAmount) || Math.max(0, gross - discountAmt);
+            const taxRate = num(item.taxRate ?? item.gstRate);
+            const taxAmt =
+              num(item.taxAmount) || (taxable * taxRate) / 100;
+            const cgst =
+              num(item.cgstAmount) || (isInter ? 0 : taxAmt / 2);
+            const sgst =
+              num(item.sgstAmount) || (isInter ? 0 : taxAmt / 2);
+            const igst =
+              num(item.igstAmount) || (isInter ? taxAmt : 0);
+            const lineTotal =
+              num(item.total ?? item.amount) || taxable + taxAmt;
+            const hsn =
+              (item as { hsnSacCode?: string; hsnSac?: string }).hsnSacCode ||
+              (item as { hsnSac?: string }).hsnSac ||
+              "—";
 
-          return (
-            <tr key={item.id || index}>
-              <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top">
-                {index + 1}.
-              </td>
-              <td className="border-r border-b border-slate-800 px-2 py-1.5 align-top">
-                <div className="font-semibold text-slate-800">
-                  {item.itemName || "—"}
-                </div>
-                {item.description && (
-                  <div className="mt-0.5 leading-[1.4] text-slate-700">
-                    {item.description}
-                  </div>
-                )}
-              </td>
-             
-              <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top">
-                {qty}
-              </td>
-              <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top">
-                {item.unit || "—"}
-              </td>
-              <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top">
-                {rate}
-              </td>
-              <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top">
-                {taxable}
-              </td>
-              {isInter ? (
-                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top">
-                  {tax}
+            return (
+              <tr key={item.id || index}>
+                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top text-slate-600">
+                  {index + 1}
                 </td>
-              ) : (
-                <>
-                  <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top">
-                    {half}
+                <td className="border-r border-b border-slate-800 px-2 py-1.5 align-top">
+                  <div className="font-semibold text-slate-800">
+                    {item.itemName || item.productName || "—"}
+                  </div>
+                  {item.description ? (
+                    <div className="mt-0.5 text-[10px] leading-[1.4] text-slate-500">
+                      {String(item.description).replace(/<[^>]+>/g, "").trim()}
+                    </div>
+                  ) : null}
+                </td>
+                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top tabular-nums text-slate-700">
+                  {hsn}
+                </td>
+                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top tabular-nums">
+                  {qty}
+                </td>
+                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-center align-top uppercase text-slate-600">
+                  {item.unit || "—"}
+                </td>
+                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
+                  {formatCurrency(rate)}
+                </td>
+                <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums text-slate-600">
+                  {formatCurrency(discountAmt)}
+                </td>
+                {isInter ? (
+                  <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
+                    <div>{formatCurrency(igst)}</div>
+                    {taxRate > 0 ? (
+                      <div className="text-[9px] text-slate-400">
+                        ({taxRate}%)
+                      </div>
+                    ) : null}
                   </td>
-                  <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top">
-                    {half}
-                  </td>
-                </>
-              )}
-              <td className="border-b border-slate-800 px-1 py-1.5 text-right align-top">
-                {lineTotal}
-              </td>
-            </tr>
-          );
-        })}
-
-        <tr>
-          <td
-            colSpan={isInter ? 9 : 10}
-            className="h-[20px] border-b border-slate-800 sm:h-[24px]"
-          />
-        </tr>
-      </tbody>
-    </table>
+                ) : (
+                  <>
+                    <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
+                      <div>{formatCurrency(cgst)}</div>
+                      {taxRate > 0 ? (
+                        <div className="text-[9px] text-slate-400">
+                          ({taxRate / 2}%)
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
+                      <div>{formatCurrency(sgst)}</div>
+                      {taxRate > 0 ? (
+                        <div className="text-[9px] text-slate-400">
+                          ({taxRate / 2}%)
+                        </div>
+                      ) : null}
+                    </td>
+                  </>
+                )}
+                <td className="border-b border-slate-800 px-1 py-1.5 text-right align-top font-semibold tabular-nums text-slate-900">
+                  {formatCurrency(lineTotal)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

@@ -1,14 +1,7 @@
-
-
-
 "use client";
 
 import type { Invoice, TaxType } from "../../../types/invoice.types";
-import {
-  InvoicePaymentDetails,
-  type BankDetails,
-  type UpiDetails,
-} from "./invoice-payment-details";
+import { InvoicePaymentDetails } from "./invoice-payment-details";
 
 function formatCurrency(value: number) {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -23,19 +16,9 @@ function num(v: unknown) {
 
 interface InvoiceSummaryProps {
   invoice: Invoice;
-  showBank?: boolean;
-  showUpi?: boolean;
-  bank?: BankDetails;
-  upi?: UpiDetails;
 }
 
-export function InvoiceSummary({
-  invoice,
-  showBank = true,
-  showUpi = true,
-  bank,
-  upi,
-}: InvoiceSummaryProps) {
+export function InvoiceSummary({ invoice }: InvoiceSummaryProps) {
   const taxType = invoice.taxType as TaxType | null | undefined;
   const isInter = taxType === "INTER_STATE";
 
@@ -49,13 +32,15 @@ export function InvoiceSummary({
 
   return (
     <div className="grid grid-cols-1 border-t border-slate-800 sm:grid-cols-[1fr_min(100%,340px)]">
-      {/* LEFT — bank / UPI (replaces empty red box) */}
-      <div className="border-b border-slate-800 sm:border-b-0 sm:border-r">
+      {/* LEFT — payment info only (no bank / UPI) */}
+      <div className="border-b border-slate-800 p-2 sm:border-b-0 sm:border-r">
         <InvoicePaymentDetails
-          showBank={showBank}
-          showUpi={showUpi}
-          bank={bank}
-          upi={upi}
+          paymentStatus={invoice.paymentStatus}
+          paymentMethod={invoice.paymentMethod}
+          paidAmount={invoice.paidAmount}
+          pendingAmount={invoice.pendingAmount}
+          paymentDate={invoice.paymentDate}
+          transactionId={invoice.transactionId}
         />
       </div>
 

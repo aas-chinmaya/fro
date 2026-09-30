@@ -6,12 +6,11 @@ export type InvoiceType = "B2B" | "B2C" | "EXPORT" | "SEZ";
 
 export type InvoiceStatus =
   | "DRAFT"
-  | "FINALIZED"
-  | "SENT"
-  | "PAID"
+  | "ISSUED"
   | "PARTIALLY_PAID"
-  | "OVERDUE"
+  | "PAID"
   | "CANCELLED";
+
 
 export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
 

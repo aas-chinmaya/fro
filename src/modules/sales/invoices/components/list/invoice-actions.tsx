@@ -18,11 +18,7 @@ type InvoiceActionsProps = {
   status?: string | null;
 };
 
-const LOCKED_STATUSES = [
-  "PAID",
-  "CANCELLED",
-  "FINALIZED",
-];
+/** Only DRAFT invoices may be edited or deleted */
 
 export default function InvoiceActions({
   id,
@@ -34,9 +30,9 @@ export default function InvoiceActions({
   const [deleteInvoice, { isLoading: isDeleting }] =
     useDeleteInvoiceMutation();
 
-  const normalized = (status || "").toUpperCase() as InvoiceStatus;
-  const canEdit = !LOCKED_STATUSES.includes(normalized);
-  const canDelete = canEdit;
+  const normalized = (status || "").toUpperCase();
+  const canEdit = normalized === "DRAFT";
+  const canDelete = normalized === "DRAFT";
   const label = invoiceNumber || id;
 
   const handleDelete = async () => {

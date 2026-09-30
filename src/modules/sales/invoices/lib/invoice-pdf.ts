@@ -290,7 +290,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   pdf.setFontSize(6.5);
   pdf.setTextColor(BLACK);
   pdf.text("#", cols.h, y);
-  pdf.text("Item name", cols.item, y);
+  pdf.text("Item", cols.item, y);
   pdf.text("HSN/SAC", cols.hsn, y);
   pdf.text("Qty", cols.qty, y);
   pdf.text("UOM", cols.uom, y);
@@ -309,12 +309,17 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   const items = invoice.items || [];
   const nameW = cols.hsn - cols.item - 2;
 
+  // Columns: # | Item (name+desc) | HSN/SAC | Qty | UOM | Price | Discount | CGST/SGST or IGST | Total
   items.forEach((item, idx) => {
     const { qty, price, discountAmt, taxRate, cgst, sgst, igst, total } =
       lineNums(item, isInter);
-    const hsn = String(item.hsnSacCode || (item as { hsnSac?: string }).hsnSac || "—").slice(0, 12);
-    const name = String(item.itemName || "—");
-    const desc = item.description ? String(item.description) : "";
+    const hsn = String(
+      item.hsnSacCode || (item as { hsnSac?: string }).hsnSac || "—",
+    ).slice(0, 12);
+    const name = String(item.itemName || item.productName || "—");
+    const desc = item.description
+      ? String(item.description).replace(/<[^>]+>/g, "").trim()
+      : "";
 
     pdf.setFontSize(7);
     const nameLines = pdf.splitTextToSize(name, nameW) as string[];

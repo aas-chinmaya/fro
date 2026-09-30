@@ -138,27 +138,29 @@ export const InvoiceColumns: ColumnDef<Invoice>[] =
       header: "Status",
 
       cell: ({ row }) => {
-        const status =
-          (
-            row.original
-              .invoiceStatus ?? ""
-          ).toUpperCase();
+        const status = (
+          row.original.invoiceStatus ?? ""
+        ).toUpperCase();
 
-        const variant =
-          status === "PAID"
-            ? "success"
-            : status === "DRAFT"
-              ? "secondary"
-              : status ===
-                  "PARTIALLY_PAID" ||
-                status ===
-                  "CANCELLED"
-                ? "destructive"
-                : "outline";
+        // Distinct colors per invoice status
+        const className =
+          status === "DRAFT"
+            ? "border-slate-300 bg-slate-100 text-slate-700"
+            : status === "ISSUED"
+              ? "border-blue-200 bg-blue-50 text-blue-800"
+              : status === "PAID"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : status === "PARTIALLY_PAID"
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : status === "OVERDUE"
+                    ? "border-orange-200 bg-orange-50 text-orange-900"
+                    : status === "CANCELLED"
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : "border-slate-200 bg-white text-slate-700";
 
         return (
-          <Badge variant={variant}>
-            {status || "-"}
+          <Badge variant="outline" className={className}>
+            {status || "—"}
           </Badge>
         );
       },
@@ -183,17 +185,15 @@ export const InvoiceColumns: ColumnDef<Invoice>[] =
 
         return (
           <div className="text-right">
-            <InvoiceActions
-              id={invoice.id}
-              invoiceNumber={
-                invoice
-                  .invoiceNumber ??
-                invoice.id
-              }
-              status={
-                invoice.invoiceStatus
-              }
-            />
+            {invoice?.id ? (
+              <InvoiceActions
+                id={String(invoice.id)}
+                invoiceNumber={
+                  invoice.invoiceNumber ?? String(invoice.id)
+                }
+                status={invoice.invoiceStatus}
+              />
+            ) : null}
           </div>
         );
       },

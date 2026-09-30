@@ -52,34 +52,11 @@ export default function InvoiceFilters({
           <SelectItem value="all">
             All statuses
           </SelectItem>
-
-          <SelectItem value="DRAFT">
-            Draft
-          </SelectItem>
-
-          <SelectItem value="FINALIZED">
-            Finalized
-          </SelectItem>
-
-          <SelectItem value="SENT">
-            Sent
-          </SelectItem>
-
-          <SelectItem value="PAID">
-            Paid
-          </SelectItem>
-
-          <SelectItem value="PARTIALLY_PAID">
-            Partially Paid
-          </SelectItem>
-
-          <SelectItem value="OVERDUE">
-            Overdue
-          </SelectItem>
-
-          <SelectItem value="CANCELLED">
-            Cancelled
-          </SelectItem>
+          <SelectItem value="DRAFT">Draft</SelectItem>
+          <SelectItem value="ISSUED">Issued</SelectItem>
+          <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
+          <SelectItem value="PAID">Paid</SelectItem>
+          <SelectItem value="CANCELLED">Cancelled</SelectItem>
         </SelectContent>
       </Select>
 

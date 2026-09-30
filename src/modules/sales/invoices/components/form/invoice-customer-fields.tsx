@@ -188,7 +188,7 @@ export function InvoiceCustomerFields() {
     setValue("buyerEmail", null, { shouldDirty: true });
     setValue("buyerGSTIN", "", { shouldDirty: true });
     setValue("buyerPAN", "", { shouldDirty: true });
-    setValue("buyerType", "REGISTERED", { shouldDirty: true });
+    setValue("buyerType", "UNREGISTERED", { shouldDirty: true });
     setValue("buyerContactPerson", "", { shouldDirty: true });
     setValue("billingAddressLine1", "", {
       shouldDirty: true,
@@ -235,16 +235,18 @@ export function InvoiceCustomerFields() {
       buyerType?: string;
       addresses?: CustomerAddress[];
     };
-    const explicitType = String(
-      cAny.buyerType || cAny.customerType || cAny.type || "",
-    )
+    // Buyer type is user-selected (REGISTERED | UNREGISTERED | EXPORT only)
+    // Default from GSTIN; never copy customerType (e.g. WALK_IN)
+    const fromCustomer = String(cAny.buyerType || "")
       .trim()
       .toUpperCase();
-    setValue(
-      "buyerType",
-      explicitType || (c.gstin ? "REGISTERED" : "UNREGISTERED"),
-      { shouldDirty: true },
-    );
+    const allowed = ["REGISTERED", "UNREGISTERED", "EXPORT"];
+    const nextType = allowed.includes(fromCustomer)
+      ? fromCustomer
+      : c.gstin
+        ? "REGISTERED"
+        : "UNREGISTERED";
+    setValue("buyerType", nextType, { shouldDirty: true });
     setValue("buyerContactPerson", cAny.contactPerson || c.name || "", {
       shouldDirty: true,
     });
@@ -476,13 +478,28 @@ export function InvoiceCustomerFields() {
         </div>
 
         <div className="space-y-1">
-          <Label className="text-xs text-slate-600">Buyer type</Label>
-          <Input
-            className="h-9 bg-slate-50"
-            value={buyerType || "—"}
-            readOnly
-            tabIndex={-1}
-          />
+          <Label className="text-xs text-slate-600">
+            Buyer type <span className="text-red-500">*</span>
+          </Label>
+          <Select
+            value={(() => {
+              const t = String(buyerType || "UNREGISTERED").toUpperCase();
+              if (t === "REGISTERED" || t === "EXPORT") return t;
+              return "UNREGISTERED";
+            })()}
+            onValueChange={(v) =>
+              setValue("buyerType", v, { shouldDirty: true, shouldValidate: true })
+            }
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select buyer type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="REGISTERED">Registered</SelectItem>
+              <SelectItem value="UNREGISTERED">Unregistered</SelectItem>
+              <SelectItem value="EXPORT">Export</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1">

@@ -15,12 +15,10 @@ import {
 import type { InvoiceFormValues } from "../../types/invoice-form.types";
 
 const METHODS = [
-  "Cash",
-  "Bank Transfer",
-  "UPI",
-  "Card",
-  "Cheque",
-  "Other",
+  { value: "CASH", label: "Cash" },
+  { value: "UPI", label: "UPI" },
+  { value: "CARD", label: "Card" },
+  { value: "NET_BANKING", label: "Net banking" },
 ] as const;
 
 const STATUSES = [
@@ -39,8 +37,8 @@ function hasExistingPayment(v: {
 }) {
   const status = String(v.paymentStatus || "PENDING").toUpperCase();
   if (status !== "PENDING") return true;
-  const method = String(v.paymentMethod || "Cash");
-  if (method && method !== "Cash") return true;
+  const method = String(v.paymentMethod || "CASH").toUpperCase();
+  if (method && method !== "CASH") return true;
   if ((Number(v.paidAmount) || 0) > 0) return true;
   if (String(v.transactionId || "").trim()) return true;
   if (String(v.paymentDate || "").trim()) return true;
@@ -58,7 +56,7 @@ export function InvoicePaymentSection() {
   const paymentStatus =
     (useWatch({ control, name: "paymentStatus" }) as string) || "PENDING";
   const paymentMethod =
-    (useWatch({ control, name: "paymentMethod" }) as string) || "Cash";
+    (useWatch({ control, name: "paymentMethod" }) as string) || "CASH";
   const paidAmount = useWatch({ control, name: "paidAmount" });
   const paymentDate = useWatch({ control, name: "paymentDate" });
   const transactionId = useWatch({ control, name: "transactionId" });
@@ -83,7 +81,7 @@ export function InvoicePaymentSection() {
   const statusUp = String(paymentStatus).toUpperCase();
   const needsPayment =
     statusUp === "PAID" || statusUp === "PARTIAL" || statusUp === "OVERDUE";
-  const isCash = !paymentMethod || paymentMethod.toLowerCase() === "cash";
+  const isCash = !paymentMethod || paymentMethod.toUpperCase() === "CASH";
   const req = needsPayment;
 
   const e = (k: keyof InvoiceFormValues) =>
@@ -157,13 +155,13 @@ export function InvoicePaymentSection() {
               {req ? <span className="text-red-500"> *</span> : null}
             </Label>
             <Select
-              value={String(paymentMethod || "Cash")}
+              value={String(paymentMethod || "CASH").toUpperCase()}
               onValueChange={(v) => {
                 setValue("paymentMethod", v, {
                   shouldDirty: true,
                   shouldValidate: true,
                 });
-                if (v === "Cash") {
+                if (v === "CASH") {
                   setValue("transactionId", null, {
                     shouldDirty: true,
                     shouldValidate: true,
@@ -176,10 +174,10 @@ export function InvoicePaymentSection() {
               </SelectTrigger>
               <SelectContent>
                 {METHODS.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
               </SelectContent>
             </Select>
             {e("paymentMethod") ? (

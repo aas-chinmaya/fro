@@ -62,9 +62,7 @@ export function InvoiceForm({
 
   const isFinalized =
     mode === "edit" &&
-    (invoice?.invoiceStatus === "FINALIZED" ||
-      invoice?.invoiceStatus === "PAID" ||
-      invoice?.invoiceStatus === "CANCELLED");
+    String(invoice?.invoiceStatus || "").toUpperCase() !== "DRAFT";
 
 
   const sessionDefaults = useMemo(
@@ -228,17 +226,109 @@ reset(mapped);
     return walk(errs) || "Please fix the highlighted fields";
   };
 
-  const submitWithStatus = async (status: "DRAFT" | "FINALIZED") => {
+  const notifySuccess = (
+    status: "DRAFT" | "ISSUED",
+    res: { message?: string; data?: { id?: string } | null },
+    modeLabel: "saved" | "updated",
+  ) => {
+    notify.success(
+      res.message ||
+        (status === "ISSUED"
+          ? modeLabel === "updated"
+            ? "Invoice issued"
+            : "Invoice issued"
+          : modeLabel === "updated"
+            ? "Draft updated"
+            : "Draft saved"),
+    );
+    const inv = res?.data;
+    if (inv?.id) onSuccess?.(inv as never);
+  };
+
+  const submitWithStatus = async (status: "DRAFT" | "ISSUED") => {
     const values = form.getValues();
+
+    // ---------- DRAFT: partial OK (create + update) ----------
+    if (status === "DRAFT") {
+      const hasCustomer =
+        !!(values.customerId || "").toString().trim() ||
+        !!(values.buyerName || "").trim();
+      const hasProduct = (values.items || []).some((it) => {
+        const id = String(it.itemId || it.productId || "").trim();
+        const name = (it.itemName || it.productName || "").trim();
+        return !!id || !!name;
+      });
+
+      if (!hasCustomer && !hasProduct) {
+        notify.error(
+          "Select a customer or add at least one product to save draft",
+        );
+        return;
+      }
+
+      const withStatus = {
+        ...values,
+        status: "DRAFT" as const,
+        invoiceStatus: "DRAFT" as const,
+      };
+
+      try {
+        if (mode === "create") {
+          const payload = sanitizeCreatePayload(withStatus);
+          const res = await createInvoice(payload).unwrap();
+          notifySuccess("DRAFT", res, "saved");
+        } else if (mode === "edit" && invoice?.id) {
+          if (isFinalized) {
+            notify.error("Only draft invoices can be edited");
+            return;
+          }
+          const payload = sanitizeUpdatePayload(withStatus);
+          const res = await updateInvoice({
+            id: invoice.id,
+            data: { ...payload, status: "DRAFT" },
+          }).unwrap();
+          notifySuccess("DRAFT", res, "updated");
+        }
+      } catch (err: unknown) {
+        const e = err as {
+          data?: { message?: string } | string;
+          error?: string;
+          message?: string;
+        };
+        const apiMessage =
+          (typeof e?.data === "object" && e?.data?.message) ||
+          e?.error ||
+          (typeof e?.data === "string" ? e.data : null) ||
+          e?.message ||
+          "Something went wrong";
+        const msg =
+          typeof apiMessage === "string"
+            ? apiMessage
+            : JSON.stringify(apiMessage);
+        // Never surface null.id crashes as toast
+        if (!/Cannot read properties of null/i.test(msg)) {
+          notify.error(msg);
+        } else {
+          notify.error("Save failed. Please try again.");
+        }
+      }
+      return;
+    }
+
+    // ---------- ISSUE: full required validation ----------
     const valid = await form.trigger();
     if (!valid) {
-      let msg = firstErrorMessage(form.formState.errors as Record<string, unknown>);
-      // Fallback: parse values so toast always names the missing field
+      let msg = firstErrorMessage(
+        form.formState.errors as Record<string, unknown>,
+      );
       if (msg === "Please fix the highlighted fields") {
         try {
           invoiceCreateSchema.parse(form.getValues());
         } catch (e: unknown) {
-          const ze = e as { issues?: Array<{ message?: string; path?: unknown[] }>; errors?: Array<{ message?: string; path?: unknown[] }> };
+          const ze = e as {
+            issues?: Array<{ message?: string; path?: unknown[] }>;
+            errors?: Array<{ message?: string; path?: unknown[] }>;
+          };
           const issue = ze?.issues?.[0] || ze?.errors?.[0];
           if (issue?.message) {
             const path = Array.isArray(issue.path) ? issue.path[0] : "";
@@ -251,12 +341,12 @@ reset(mapped);
               billingState: "Customer state",
               placeOfSupply: "Place of supply",
               invoiceDate: "Invoice date",
-              invoiceDate: "Invoice date",
               termsAndConditions: "Terms & conditions",
               items: "Product items",
               transactionId: "Transaction / reference ID",
             };
-            const label = (path && labels[String(path)]) || String(path || "Field");
+            const label =
+              (path && labels[String(path)]) || String(path || "Field");
             msg = `${label}: ${issue.message}`;
           }
         }
@@ -265,40 +355,36 @@ reset(mapped);
       return;
     }
 
-    if (status === "FINALIZED") {
-      const terms = (values.termsAndConditions || "").replace(/<[^>]+>/g, "").trim();
-      if (!terms) {
-        notify.error("Terms & conditions are required to finalize");
-        return;
-      }
+    const terms = (values.termsAndConditions || "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    if (!terms) {
+      notify.error("Terms & conditions are required to issue");
+      return;
     }
 
-    const withStatus = { ...values, status, invoiceStatus: status };
+    const withStatus = {
+      ...values,
+      status: "ISSUED" as const,
+      invoiceStatus: "ISSUED" as const,
+    };
 
     try {
       if (mode === "create") {
         const payload = sanitizeCreatePayload(withStatus);
         const res = await createInvoice(payload).unwrap();
-        notify.success(
-          res.message ||
-            (status === "FINALIZED" ? "Invoice finalized" : "Draft saved"),
-        );
-        onSuccess?.(res.data);
+        notifySuccess("ISSUED", res, "saved");
       } else if (mode === "edit" && invoice?.id) {
         if (isFinalized) {
-          notify.error("Finalized invoices cannot be edited");
+          notify.error("Only draft invoices can be edited");
           return;
         }
         const payload = sanitizeUpdatePayload(withStatus);
         const res = await updateInvoice({
           id: invoice.id,
-          data: { ...payload, status },
+          data: { ...payload, status: "ISSUED" },
         }).unwrap();
-        notify.success(
-          res.message ||
-            (status === "FINALIZED" ? "Invoice finalized" : "Draft updated"),
-        );
-        onSuccess?.(res.data);
+        notifySuccess("ISSUED", res, "updated");
       }
     } catch (err: unknown) {
       const e = err as {
@@ -312,11 +398,15 @@ reset(mapped);
         (typeof e?.data === "string" ? e.data : null) ||
         e?.message ||
         "Something went wrong";
-      notify.error(
+      const msg =
         typeof apiMessage === "string"
           ? apiMessage
-          : JSON.stringify(apiMessage),
-      );
+          : JSON.stringify(apiMessage);
+      if (!/Cannot read properties of null/i.test(msg)) {
+        notify.error(msg);
+      } else {
+        notify.error("Save failed. Please try again.");
+      }
     }
   };
 

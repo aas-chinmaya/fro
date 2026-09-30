@@ -2,11 +2,9 @@ import { z } from "zod";
 
 export const invoiceStatusSchema = z.enum([
   "DRAFT",
-  "FINALIZED",
-  "SENT",
-  "PAID",
+  "ISSUED",
   "PARTIALLY_PAID",
-  "OVERDUE",
+  "PAID",
   "CANCELLED",
 ]);
 
@@ -143,7 +141,7 @@ export const invoiceBaseSchema = z.object({
   buyerPAN: optionalSafeText(LIMITS.PAN),
   buyerPhone: phoneRequired,
   buyerEmail: optionalEmail,
-  buyerType: optionalSafeText(50),
+  buyerType: z.enum(["REGISTERED", "UNREGISTERED", "EXPORT"]).optional().default("UNREGISTERED"),
   buyerContactPerson: optionalSafeText(LIMITS.NAME),
 
   billingAddressLine1: safeText(LIMITS.ADDRESS, "Address is required"),
@@ -193,7 +191,7 @@ export const invoiceBaseSchema = z.object({
     .enum(["PENDING", "PARTIAL", "PAID", "OVERDUE"])
     .optional()
     .default("PENDING"),
-  paymentMethod: z.string().max(50).optional().nullable().default("Cash"),
+  paymentMethod: z.enum(["CASH", "UPI", "CARD", "NET_BANKING"]).optional().nullable().default("CASH"),
   paidAmount: z.coerce.number().nonnegative().optional().default(0),
   pendingAmount: z.coerce.number().nonnegative().optional().default(0),
   paymentDate: z.string().optional().nullable(),
@@ -295,7 +293,7 @@ export const invoiceCreateSchema = invoiceBaseSchema.superRefine(
           path: ["paymentDate"],
         });
       }
-      const isCash = method.toLowerCase() === "cash";
+      const isCash = method.toUpperCase() === "CASH";
       const tx = String(data.transactionId || "").trim();
       if (!isCash && !tx) {
         ctx.addIssue({
@@ -306,8 +304,8 @@ export const invoiceCreateSchema = invoiceBaseSchema.superRefine(
       }
     } else {
       // PENDING: only enforce tx if user chose non-cash method
-      const method = String(data.paymentMethod || "Cash").trim();
-      const isCash = method.toLowerCase() === "cash";
+      const method = String(data.paymentMethod || "CASH").trim();
+      const isCash = method.toUpperCase() === "CASH";
       const tx = String(data.transactionId || "").trim();
       if (!isCash && method && !tx) {
         ctx.addIssue({

@@ -26,6 +26,23 @@ export default function InvoiceEditPage({ id }: { id: string }) {
   }
 
   const invoice = data.data;
+  const status = String(invoice.invoiceStatus || "").toUpperCase();
+  if (status && status !== "DRAFT") {
+    return (
+      <div className="space-y-4 py-10 text-center">
+        <p className="text-sm text-destructive">
+          Only draft invoices can be edited.
+        </p>
+        <button
+          type="button"
+          className="text-sm text-primary underline"
+          onClick={() => router.push(`/sales/invoices/${id}`)}
+        >
+          Back to invoice
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className=" space-y-6 ">
@@ -36,7 +53,10 @@ export default function InvoiceEditPage({ id }: { id: string }) {
       <InvoiceForm
         mode="edit"
         invoice={invoice}
-        onSuccess={() => router.push("/sales/invoices")}
+        onSuccess={(inv) => {
+          const id = inv?.id;
+          if (id) router.push(`/sales/invoices/${id}`);
+        }}
         onCancel={() => router.push(`/sales/invoices/${id}`)}
       />
     </div>

@@ -12,7 +12,7 @@ interface InvoiceFormActionsProps {
   mode: InvoiceFormMode;
   isSubmitting: boolean;
   readOnly?: boolean;
-  onSubmitIntent: (status: "DRAFT" | "FINALIZED") => void;
+  onSubmitIntent: (status: "DRAFT" | "ISSUED") => void;
   onReset?: () => void;
   onCancel?: () => void;
 }
@@ -66,8 +66,8 @@ export function InvoiceFormActions({
   /** Draft: always allowed when not locked / not submitting (partial save OK) */
   const canSaveDraft = !readOnly && !isSubmitting;
 
-  /** Finalize: required fields only (bank/signature optional for now) */
-  const canFinalize =
+  /** Issue: required fields only (bank/signature optional for now) */
+  const canIssue =
     !readOnly &&
     !isSubmitting &&
     customerOk &&
@@ -134,11 +134,11 @@ export function InvoiceFormActions({
               </Button>
               <Button
                 type="button"
-                disabled={!canFinalize}
-                onClick={() => onSubmitIntent("FINALIZED")}
+                disabled={!canIssue}
+                onClick={() => onSubmitIntent("ISSUED")}
                 className="w-full sm:w-auto"
               >
-                {isSubmitting ? "Submitting…" : "Finalize"}
+                {isSubmitting ? "Submitting…" : "Issue"}
               </Button>
             </>
           ) : (

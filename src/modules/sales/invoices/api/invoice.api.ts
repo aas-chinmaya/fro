@@ -151,11 +151,22 @@ export const invoiceApi = baseApi.injectEndpoints({
       InvoiceResponse,
       InvoiceCreatePayload
     >({
-      query: (data) => ({
-         url: `${INVOICE_ENDPOINT}/`,
-        method: "POST",
-        data,
-      }),
+      // DRAFT → POST /drafts ; ISSUED (and others) → POST /
+      query: (data) => {
+        const status = String(
+          (data as { status?: string; invoiceStatus?: string }).status ||
+            (data as { invoiceStatus?: string }).invoiceStatus ||
+            "DRAFT",
+        ).toUpperCase();
+        const isDraft = status === "DRAFT";
+        return {
+          url: isDraft
+            ? `${INVOICE_ENDPOINT}/drafts`
+            : `${INVOICE_ENDPOINT}/`,
+          method: "POST",
+          data,
+        };
+      },
       transformResponse: (response: unknown) => unwrapOne(response),
       invalidatesTags: [
         {
@@ -172,9 +183,10 @@ export const invoiceApi = baseApi.injectEndpoints({
         data: InvoiceUpdatePayload;
       }
     >({
+      // Draft updates: PATCH /drafts/:id (backend salesInvoiceController.updateDraft)
       query: ({ id, data }) => ({
-        url: `${INVOICE_ENDPOINT}/${id}`,
-        method: "PUT",
+        url: `${INVOICE_ENDPOINT}/drafts/${id}`,
+        method: "PATCH",
         data,
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
@@ -197,11 +209,27 @@ export const invoiceApi = baseApi.injectEndpoints({
         data: InvoiceStatusChangePayload;
       }
     >({
-      query: ({ id, data }) => ({
-        url: `${INVOICE_ENDPOINT}/${id}/status`,
-        method: "PATCH",
-        data,
-      }),
+      // CANCELLED → PATCH /invoices/:id/cancel
+      // other status changes → PATCH /invoices/:id/status (if used)
+      query: ({ id, data }) => {
+        const status = String(
+          (data as { status?: string; invoiceStatus?: string }).status ||
+            (data as { invoiceStatus?: string }).invoiceStatus ||
+            "",
+        ).toUpperCase();
+        if (status === "CANCELLED") {
+          return {
+            url: `${INVOICE_ENDPOINT}/invoices/${id}/cancel`,
+            method: "PATCH",
+            data,
+          };
+        }
+        return {
+          url: `${INVOICE_ENDPOINT}/invoices/${id}/status`,
+          method: "PATCH",
+          data,
+        };
+      },
       transformResponse: (response: unknown) => unwrapOne(response),
       invalidatesTags: (_result, _error, { id }) => [
         {
@@ -216,8 +244,9 @@ export const invoiceApi = baseApi.injectEndpoints({
     }),
 
     deleteInvoice: builder.mutation<InvoiceResponse, string>({
+      // DELETE /drafts/:id — salesInvoiceController.deleteDraft
       query: (id) => ({
-        url: `${INVOICE_ENDPOINT}/${id}`,
+        url: `${INVOICE_ENDPOINT}/drafts/${id}`,
         method: "DELETE",
       }),
       transformResponse: (response: unknown) => unwrapOne(response),
@@ -230,6 +259,20 @@ export const invoiceApi = baseApi.injectEndpoints({
           type: "Invoices",
           id: "LIST",
         },
+      ],
+    }),
+
+
+    /** PATCH /invoices/:id/cancel — salesInvoiceController.cancelInvoice */
+    cancelInvoice: builder.mutation<InvoiceResponse, string>({
+      query: (id) => ({
+        url: `${INVOICE_ENDPOINT}/invoices/${id}/cancel`,
+        method: "PATCH",
+      }),
+      transformResponse: (response: unknown) => unwrapOne(response),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Invoices", id },
+        { type: "Invoices", id: "LIST" },
       ],
     }),
 
@@ -252,5 +295,6 @@ export const {
   useUpdateInvoiceMutation,
   useUpdateInvoiceStatusMutation,
   useDeleteInvoiceMutation,
+  useCancelInvoiceMutation,
   useDownloadInvoicePdfMutation,
 } = invoiceApi;

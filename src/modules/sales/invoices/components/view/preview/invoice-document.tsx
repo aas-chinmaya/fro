@@ -1,7 +1,6 @@
 "use client";
 
 import type { Invoice } from "../../../types/invoice.types";
-import { StatusBadge } from "@/modules/sales/shared/components/ui/status-badge";
 import { InvoiceItemsTable } from "./invoice-items-table";
 import { InvoiceSummary } from "./invoice-summary";
 import { InvoiceSignature } from "./invoice-signature";
@@ -48,7 +47,20 @@ function InfoRow({
   );
 }
 
+function statusChipClass(status: string) {
+  const s = String(status || "").toUpperCase();
+  if (s === "DRAFT") return "border-slate-300 bg-slate-100 text-slate-700";
+  if (s === "ISSUED") return "border-blue-200 bg-blue-50 text-blue-800";
+  if (s === "PAID") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (s === "PARTIALLY_PAID") return "border-amber-200 bg-amber-50 text-amber-900";
+  if (s === "OVERDUE") return "border-orange-200 bg-orange-50 text-orange-900";
+  if (s === "CANCELLED") return "border-red-200 bg-red-50 text-red-800";
+  return "border-slate-200 bg-white text-slate-700";
+}
+
 export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
+  const statusLabel = String(invoice.invoiceStatus || "DRAFT").toUpperCase();
+
   const logo = invoice.businessLogo?.trim() || null;
 
   const businessAddress = formatAddress([
@@ -104,7 +116,11 @@ export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
             <span className="text-[16px] font-normal text-slate-700 sm:text-[18px] md:text-[20px]">
               Invoice
             </span>
-            <StatusBadge status={invoice.invoiceStatus} />
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusChipClass(statusLabel)}`}
+            >
+              {statusLabel}
+            </span>
           </div>
         </div>
 

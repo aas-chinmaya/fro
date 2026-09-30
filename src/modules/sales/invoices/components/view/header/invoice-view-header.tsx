@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/modules/sales/shared/components/ui/status-badge";
 import type { Invoice } from "../../../types/invoice.types";
 
 interface InvoiceViewHeaderProps {
@@ -23,6 +22,17 @@ interface InvoiceViewHeaderProps {
  * - other  → Download PDF only
  * No status-change actions on the view page for now.
  */
+function statusChipClass(status: string) {
+  const s = status.toUpperCase();
+  if (s === "DRAFT") return "border-slate-300 bg-slate-100 text-slate-700";
+  if (s === "ISSUED") return "border-blue-200 bg-blue-50 text-blue-800";
+  if (s === "PAID") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (s === "PARTIALLY_PAID") return "border-amber-200 bg-amber-50 text-amber-900";
+  if (s === "OVERDUE") return "border-orange-200 bg-orange-50 text-orange-900";
+  if (s === "CANCELLED") return "border-red-200 bg-red-50 text-red-800";
+  return "border-slate-200 bg-white text-slate-700";
+}
+
 export function InvoiceViewHeader({
   invoice,
   onDownload,
@@ -54,7 +64,11 @@ export function InvoiceViewHeader({
             <h1 className="truncate text-sm font-semibold text-gray-900">
               {invoice.invoiceNumber ?? "—"}
             </h1>
-            <StatusBadge status={invoice.invoiceStatus} />
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusChipClass(status)}`}
+            >
+              {status}
+            </span>
             {invoice.buyerName ? (
               <span className="hidden truncate text-[11px] text-gray-500 sm:inline">
                 · {invoice.buyerName}
