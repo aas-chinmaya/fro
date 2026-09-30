@@ -93,7 +93,6 @@ export interface Invoice {
   buyerPhone?: string | null;
   buyerEmail?: string | null;
   buyerType?: string | null;
-  buyerContactPerson?: string | null;
 
   // Billing
   billingAddressLine1?: string | null;
@@ -105,7 +104,6 @@ export interface Invoice {
   billingCountry?: string | null;
 
   // Shipping
-  sameAsBilling?: boolean;
   shippingAddressLine1?: string | null;
   shippingAddressLine2?: string | null;
   shippingCity?: string | null;
@@ -202,7 +200,6 @@ export interface InvoiceCreatePayload {
   buyerPhone?: string | null;
   buyerEmail?: string | null;
   buyerType?: string | null;
-  buyerContactPerson?: string | null;
 
   billingAddressLine1?: string | null;
   billingAddressLine2?: string | null;
@@ -211,8 +208,6 @@ export interface InvoiceCreatePayload {
   billingStateCode?: string | null;
   billingPincode?: string | null;
   billingCountry?: string | null;
-
-  sameAsBilling?: boolean;
   shippingAddressLine1?: string | null;
   shippingAddressLine2?: string | null;
   shippingCity?: string | null;

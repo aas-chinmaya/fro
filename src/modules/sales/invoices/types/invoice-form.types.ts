@@ -69,7 +69,6 @@ export interface InvoiceFormValues {
   buyerPhone: string;
   buyerEmail?: string | null;
   buyerType?: string;
-  buyerContactPerson?: string;
 
   billingAddressLine1: string;
   billingAddressLine2?: string;
@@ -78,8 +77,6 @@ export interface InvoiceFormValues {
   billingStateCode?: string;
   billingPincode: string;
   billingCountry: string;
-
-  sameAsBilling?: boolean;
   shippingAddressLine1?: string;
   shippingAddressLine2?: string;
   shippingCity?: string;

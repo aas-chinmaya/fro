@@ -150,7 +150,8 @@ export function InvoiceCustomerFields() {
   const billingState = useWatch({ control, name: "billingState" }) ?? "";
   const placeOfSupply = useWatch({ control, name: "placeOfSupply" }) ?? "";
   const reverseCharge = useWatch({ control, name: "reverseCharge" }) ?? false;
-  const sameAsBilling = useWatch({ control, name: "sameAsBilling" }) ?? true;
+  // UI-only: not a form/API field
+  const [shipSameAsBilling, setShipSameAsBilling] = useState(true);
   const shippingState = useWatch({ control, name: "shippingState" }) ?? "";
 
   const [addressList, setAddressList] = useState<CustomerAddress[]>([]);
@@ -189,7 +190,6 @@ export function InvoiceCustomerFields() {
     setValue("buyerGSTIN", "", { shouldDirty: true });
     setValue("buyerPAN", "", { shouldDirty: true });
     setValue("buyerType", "UNREGISTERED", { shouldDirty: true });
-    setValue("buyerContactPerson", "", { shouldDirty: true });
     setValue("billingAddressLine1", "", {
       shouldDirty: true,
       shouldValidate: true,
@@ -202,7 +202,7 @@ export function InvoiceCustomerFields() {
     setValue("billingStateCode", "", { shouldDirty: true });
     setValue("placeOfSupply", "", { shouldDirty: true, shouldValidate: true });
     setValue("placeOfSupplyCode", "", { shouldDirty: true });
-    setValue("sameAsBilling", true, { shouldDirty: true });
+    setShipSameAsBilling(true);
     clearShipping();
     setAddressList([]);
     setBillingAddrId("");
@@ -247,9 +247,6 @@ export function InvoiceCustomerFields() {
         ? "REGISTERED"
         : "UNREGISTERED";
     setValue("buyerType", nextType, { shouldDirty: true });
-    setValue("buyerContactPerson", cAny.contactPerson || c.name || "", {
-      shouldDirty: true,
-    });
 
     // Build address list from:
     // 1) full addresses[] if select passes it
@@ -298,7 +295,7 @@ export function InvoiceCustomerFields() {
     setAddressList(addrs);
 
     if (addrs.length === 0) {
-      setValue("sameAsBilling", true, { shouldDirty: true });
+      setShipSameAsBilling(true);
       clearShipping();
       setBillingAddrId("");
       return;
@@ -314,7 +311,7 @@ export function InvoiceCustomerFields() {
     setBillingAddrId(billing.id || "0");
     applyAddress(setValue as SetVal, "billing", billing, true);
 
-    setValue("sameAsBilling", true, { shouldDirty: true });
+    setShipSameAsBilling(true);
     clearShipping();
   };
 
@@ -325,17 +322,17 @@ export function InvoiceCustomerFields() {
       addressList[Number(id)] ||
       null;
     applyAddress(setValue as SetVal, "billing", a, true);
-    if (sameAsBilling) clearShipping();
+    if (shipSameAsBilling) clearShipping();
   };
 
   const onPickShippingSource = (id: string) => {
     if (id === "billing") {
-      setValue("sameAsBilling", true, { shouldDirty: true });
+      setShipSameAsBilling(true);
       clearShipping();
       return;
     }
     if (id === "custom") {
-      setValue("sameAsBilling", false, { shouldDirty: true });
+      setShipSameAsBilling(false);
       setCustomShipping(true);
       setShippingAddrId("custom");
       setValue("shippingAddressLine1", "", { shouldDirty: true });
@@ -349,7 +346,7 @@ export function InvoiceCustomerFields() {
     }
     setCustomShipping(false);
     setShippingAddrId(id);
-    setValue("sameAsBilling", false, { shouldDirty: true });
+    setShipSameAsBilling(false);
     const a =
       addressList.find((x) => (x.id || "") === id) ||
       addressList[Number(id)] ||
@@ -358,7 +355,7 @@ export function InvoiceCustomerFields() {
   };
 
   const onSameAsBillingChange = (checked: boolean) => {
-    setValue("sameAsBilling", checked, { shouldDirty: true });
+    setShipSameAsBilling(checked);
     if (checked) {
       clearShipping();
       return;
@@ -502,15 +499,6 @@ export function InvoiceCustomerFields() {
           </Select>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-slate-600">Contact person</Label>
-          <Input
-            className="h-9"
-            maxLength={120}
-            placeholder="Optional"
-            {...register("buyerContactPerson")}
-          />
-        </div>
       </div>
 
       <div className="border-t border-slate-100 pt-3">
@@ -678,19 +666,19 @@ export function InvoiceCustomerFields() {
       <div className="border-t border-slate-100 pt-3">
         <div className="mb-2 flex items-center gap-2">
           <Checkbox
-            id="sameAsBilling"
-            checked={!!sameAsBilling}
+            id="shipSameAsBilling"
+            checked={!!shipSameAsBilling}
             onCheckedChange={(v) => onSameAsBillingChange(v === true)}
           />
           <Label
-            htmlFor="sameAsBilling"
+            htmlFor="shipSameAsBilling"
             className="cursor-pointer text-xs font-medium text-slate-700"
           >
             Shipping address same as billing
           </Label>
         </div>
 
-        {!sameAsBilling ? (
+        {!shipSameAsBilling ? (
           <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-xs text-slate-600">Shipping source</Label>

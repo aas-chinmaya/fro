@@ -53,9 +53,8 @@ export default function InvoiceEditPage({ id }: { id: string }) {
       <InvoiceForm
         mode="edit"
         invoice={invoice}
-        onSuccess={(inv) => {
-          const id = inv?.id;
-          if (id) router.push(`/sales/invoices/${id}`);
+        onSuccess={() => {
+          router.push("/sales/invoices");
         }}
         onCancel={() => router.push(`/sales/invoices/${id}`)}
       />

@@ -142,7 +142,6 @@ export const invoiceBaseSchema = z.object({
   buyerPhone: phoneRequired,
   buyerEmail: optionalEmail,
   buyerType: z.enum(["REGISTERED", "UNREGISTERED", "EXPORT"]).optional().default("UNREGISTERED"),
-  buyerContactPerson: optionalSafeText(LIMITS.NAME),
 
   billingAddressLine1: safeText(LIMITS.ADDRESS, "Address is required"),
   billingAddressLine2: optionalSafeText(LIMITS.ADDRESS),
@@ -151,8 +150,6 @@ export const invoiceBaseSchema = z.object({
   billingStateCode: optionalSafeText(10),
   billingPincode: pincodeRequired,
   billingCountry: safeText(LIMITS.CITY, "Country is required"),
-
-  sameAsBilling: z.boolean().optional().default(true),
   shippingAddressLine1: optionalSafeText(LIMITS.ADDRESS),
   shippingAddressLine2: optionalSafeText(LIMITS.ADDRESS),
   shippingCity: optionalSafeText(LIMITS.CITY),

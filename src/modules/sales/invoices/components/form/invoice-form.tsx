@@ -241,8 +241,8 @@ reset(mapped);
             ? "Draft updated"
             : "Draft saved"),
     );
-    const inv = res?.data;
-    if (inv?.id) onSuccess?.(inv as never);
+    // Always notify parent so it can redirect (e.g. to list)
+    onSuccess?.((res?.data as never) ?? null);
   };
 
   const submitWithStatus = async (status: "DRAFT" | "ISSUED") => {

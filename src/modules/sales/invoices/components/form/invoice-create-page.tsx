@@ -15,11 +15,8 @@ export default function InvoiceCreatePage() {
       />
       <InvoiceForm
         mode="create"
-        onSuccess={(inv) => {
-          if (inv?.id) {
-            router.push(`/sales/invoices/${String(inv.id)}`);
-          }
-          // else stay on create form (no list redirect)
+        onSuccess={() => {
+          router.push("/sales/invoices");
         }}
         onCancel={() => router.push("/sales/invoices")}
       />

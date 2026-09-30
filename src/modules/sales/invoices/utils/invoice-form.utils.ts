@@ -146,7 +146,6 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
     buyerGSTIN: "",
     buyerPAN: "",
     buyerType: "UNREGISTERED",
-    buyerContactPerson: "",
     billingAddressLine1: "",
     billingAddressLine2: "",
     billingCity: "",
@@ -154,7 +153,6 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
     billingStateCode: "",
     billingPincode: "",
     billingCountry: "India",
-    sameAsBilling: true,
     placeOfSupply: "",
     placeOfSupplyCode: "",
     taxType: "INTRA_STATE",
@@ -228,7 +226,6 @@ export function mapInvoiceToFormValues(
     buyerGSTIN: inv.buyerGSTIN || "",
     buyerPAN: inv.buyerPAN || "",
     buyerType: inv.buyerType || "REGISTERED",
-    buyerContactPerson: inv.buyerContactPerson || "",
     billingAddressLine1: inv.billingAddressLine1 || "",
     billingAddressLine2: inv.billingAddressLine2 || "",
     billingCity: inv.billingCity || "",
@@ -236,7 +233,6 @@ export function mapInvoiceToFormValues(
     billingStateCode: inv.billingStateCode || "",
     billingPincode: inv.billingPincode || "",
     billingCountry: inv.billingCountry || "India",
-    sameAsBilling: inv.sameAsBilling ?? true,
     shippingAddressLine1: inv.shippingAddressLine1 || "",
     shippingAddressLine2: inv.shippingAddressLine2 || "",
     shippingCity: inv.shippingCity || "",
@@ -517,7 +513,6 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
       const gstin = String(rest.buyerGSTIN || "").trim();
       return gstin ? "REGISTERED" : "UNREGISTERED";
     })(),
-    buyerContactPerson: rest.buyerContactPerson || rest.buyerName || null,
     billingAddressLine1: draftAddr || rest.billingAddressLine1,
     billingAddressLine2: rest.billingAddressLine2 || null,
     billingCity: draftCity || rest.billingCity,
@@ -525,36 +520,18 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
     billingStateCode: rest.billingStateCode || null,
     billingPincode: draftPin || rest.billingPincode,
     billingCountry: draftCountry,
-    sameAsBilling: rest.sameAsBilling ?? true,
-    // Always send shipping: mirror billing when sameAsBilling
+    // Shipping: use explicit shipping if set, else mirror billing (no sameAsBilling field)
     shippingAddressLine1:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingAddressLine1 || null
-        : rest.shippingAddressLine1 || null,
+      rest.shippingAddressLine1 || rest.billingAddressLine1 || null,
     shippingAddressLine2:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingAddressLine2 || null
-        : rest.shippingAddressLine2 || null,
-    shippingCity:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingCity || null
-        : rest.shippingCity || null,
-    shippingState:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingState || null
-        : rest.shippingState || null,
+      rest.shippingAddressLine2 || rest.billingAddressLine2 || null,
+    shippingCity: rest.shippingCity || rest.billingCity || null,
+    shippingState: rest.shippingState || rest.billingState || null,
     shippingStateCode:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingStateCode || null
-        : rest.shippingStateCode || null,
-    shippingPincode:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingPincode || null
-        : rest.shippingPincode || null,
+      rest.shippingStateCode || rest.billingStateCode || null,
+    shippingPincode: rest.shippingPincode || rest.billingPincode || null,
     shippingCountry:
-      (rest.sameAsBilling ?? true)
-        ? rest.billingCountry || "India"
-        : rest.shippingCountry || null,
+      rest.shippingCountry || rest.billingCountry || "India",
     placeOfSupply: draftPos || rest.placeOfSupply,
     placeOfSupplyCode: rest.placeOfSupplyCode || null,
     taxType: rest.taxType || "INTRA_STATE",

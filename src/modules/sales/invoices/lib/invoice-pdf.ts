@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import type { Invoice, InvoiceItem } from "../types/invoice.types";
+import { RUPEE_PNG_DATA_URL } from "./rupee-icon";
 
 function formatDate(v?: string | null) {
   if (!v) return "—";
@@ -26,8 +27,8 @@ function num(v: unknown) {
 
 function currencySymbol(code?: string | null) {
   const c = (code || "INR").toUpperCase();
-  // Helvetica has no ₹ — use ASCII-safe "Rs." for INR
-  if (c === "INR" || c === "RS" || c === "RUPEE" || c === "RUPEES") return "Rs. ";
+  // Prefer ₹ (drawn slightly smaller next to amount in summary)
+  if (c === "INR" || c === "RS" || c === "RUPEE" || c === "RUPEES") return "₹";
   if (c === "USD") return "USD ";
   if (c === "EUR") return "EUR ";
   if (c === "GBP") return "GBP ";
@@ -414,22 +415,53 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
     summaryRows.push({ label: "SGST", value: cur + fmtAmt(sgstAmt) });
   }
   summaryRows.push({
-    label: "Total (" + currency + ")",
+    label: "Total",
     value: cur + fmtAmt(grand),
-    bold: true,
+    bold: false,
   });
 
-  // Compact right-aligned summary — same font size throughout
+  // Compact right-aligned summary — normal text (Total slightly emphasized)
   y = ensureSpace(summaryRows.length * 4 + 4, y);
-  const labelX = pageW - m - 48;
+  const labelX = pageW - m - 55;
   const valueX = pageW - m - 4;
+  const isInr =
+    !invoice.currency ||
+    ["INR", "RS", "RUPEE", "RUPEES"].includes(
+      String(invoice.currency).toUpperCase(),
+    );
+  // Small ₹ icon size (mm) — appropriate next to 7.5pt amounts
+  const rupeeW = 2.2;
+  const rupeeH = 2.8;
+
   summaryRows.forEach((row) => {
     y += 4;
-    pdf.setFont("helvetica", row.bold ? "bold" : "normal");
+    pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7.5);
     pdf.setTextColor(BLACK);
     pdf.text(row.label, labelX, y, { align: "right" });
-    pdf.text(row.value, valueX, y, { align: "right" });
+    if (isInr && row.value.startsWith("₹")) {
+      const numPart = row.value.slice(1).trim();
+      const numW = pdf.getTextWidth(numPart);
+      // number right-aligned; tiny ₹ icon just left of it
+      pdf.text(numPart, valueX, y, { align: "right" });
+      try {
+        pdf.addImage(
+          RUPEE_PNG_DATA_URL,
+          "PNG",
+          valueX - numW - rupeeW - 0.6,
+          y - rupeeH + 0.35,
+          rupeeW,
+          rupeeH,
+        );
+      } catch {
+        // fallback text if image fails
+        pdf.setFontSize(6.5);
+        pdf.text("Rs.", valueX - numW - 0.5, y, { align: "right" });
+        pdf.setFontSize(7.5);
+      }
+    } else {
+      pdf.text(row.value, valueX, y, { align: "right" });
+    }
   });
   y += 2.5;
   hLine(y, BLACK, 0.3);
@@ -461,6 +493,8 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
 
   y = Math.max(y + wordLines.length * 3.2 + 6, y + 20);
   hLine(y, BLACK, 0.25);
+
+  // Payment details intentionally omitted on PDF (Paid / Pending / Method / Date / Txn)
 
   // Terms only — internal notes never printed
   const terms = stripHtml(invoice.termsAndConditions);
