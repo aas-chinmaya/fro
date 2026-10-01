@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { productservice } from "../services/product.service";
-import { serviceservice } from "../services/service.service";
+import { productservice } from "@/modules/items/services/product.service";
+import { serviceservice } from "@/modules/items/services/service.service";
 
 export interface InvoiceItem {
   id: string;
