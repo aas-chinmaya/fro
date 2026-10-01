@@ -187,11 +187,14 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
 }
 
 /** Map session business → seller fields */
-export function getSessionFormDefaults(session: {
-  business?: Record<string, unknown> | null;
-  user?: Record<string, unknown> | null;
-} | null | undefined): Partial<InvoiceFormValues> {
-  const b = (session?.business || {}) as Record<string, unknown>;
+export function getSessionFormDefaults(
+  session: unknown,
+): Partial<InvoiceFormValues> {
+  const s = (session ?? {}) as {
+    business?: Record<string, unknown> | null;
+    user?: Record<string, unknown> | null;
+  };
+  const b = (s.business || {}) as Record<string, unknown>;
   return {
     sellerTradeName: String(b.name || b.tradeName || ""),
     sellerLegalName: String(b.legalName || b.name || ""),
@@ -291,8 +294,8 @@ export function mapInvoiceToFormValues(
     receivedAccount: inv.receivedAccount || "",
     notes: inv.notes || "",
     termsAndConditions: inv.termsAndConditions || "",
-    status: inv.invoiceStatus || inv.status || "DRAFT",
-    invoiceStatus: inv.invoiceStatus || inv.status || "DRAFT",
+    status: inv.invoiceStatus  || "DRAFT",
+    invoiceStatus: inv.invoiceStatus || "DRAFT",
     sellerTradeName: inv.sellerTradeName || "",
     sellerLegalName: inv.sellerLegalName || "",
     sellerGSTIN: inv.sellerGSTIN || "",
@@ -418,7 +421,11 @@ export function applyTotalsToValues(
 }
 
 
-export function sanitizeCreatePayload(values: InvoiceFormValues) {
+export function sanitizeCreatePayload(
+  values: InvoiceFormValues,
+): import("../types/invoice.types").InvoiceCreatePayload {
+  // Implementation builds a compatible payload; cast at return to allow
+  // extra line-item fields the backend accepts.
   const {
     tenantId: _tenant,
     branchId: _branch,
@@ -495,7 +502,7 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
       toIsoDateTime(rest.invoiceDate as string) ||
       (isDraft
         ? new Date().toISOString()
-        : rest.invoiceDate || null),
+        : (rest.invoiceDate as string) || new Date().toISOString()),
     financialYear: rest.financialYear || null,
     // Backend accepts either; send both for compatibility with past API
     status: rest.status || rest.invoiceStatus || "DRAFT",
@@ -665,7 +672,8 @@ export function sanitizeCreatePayload(values: InvoiceFormValues) {
       if (t) return t;
       return isDraft ? "—" : "";
     })(),
-  };
+    signature: (rest as { signature?: string | null }).signature || null,
+  } as import("../types/invoice.types").InvoiceCreatePayload;
 }
 
 export function sanitizeUpdatePayload(values: InvoiceFormValues) {

@@ -114,8 +114,8 @@ export function InvoiceItemRow({
   const clearLine = () => {
     setValue(`${prefix}.itemId`, null, { shouldDirty: true });
     setValue(`${prefix}.itemName`, "", { shouldDirty: true });
-    setValue(`${prefix}.description`, null, { shouldDirty: true });
-    setValue(`${prefix}.hsnSacCode`, null, { shouldDirty: true });
+    setValue(`${prefix}.description`, undefined, { shouldDirty: true });
+    setValue(`${prefix}.hsnSacCode`, undefined, { shouldDirty: true });
     setValue(`${prefix}.rate`, 0, { shouldDirty: true });
     setValue(`${prefix}.price`, 0, { shouldDirty: true });
     setValue(`${prefix}.quantity`, 1, { shouldDirty: true });
@@ -157,8 +157,8 @@ export function InvoiceItemRow({
     setValue(
       `${prefix}.description`,
       item.description
-        ? sanitizePlainText(item.description, 500) || null
-        : null,
+        ? sanitizePlainText(item.description, 500) || undefined
+        : undefined,
       { shouldDirty: true },
     );
     const hsnClean = sanitizePlainText(
@@ -249,7 +249,7 @@ export function InvoiceItemRow({
     }
     setValue(
       `${prefix}.${field}`,
-      field === "itemName" ? clean : clean || null,
+      field === "itemName" ? clean : clean || undefined,
       { shouldDirty: true },
     );
   };

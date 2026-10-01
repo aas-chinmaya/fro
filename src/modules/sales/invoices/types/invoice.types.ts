@@ -56,6 +56,9 @@ export interface InvoiceItem {
   total?: number;
   amount?: number;
   taxableAmount?: number;
+  discountAmount?: number;
+  totalTaxAmount?: number;
+  lineTotal?: number;
   stockAvailable?: number | null;
 }
 
@@ -250,6 +253,21 @@ export interface InvoiceCreatePayload {
   showBankDetails?: boolean;
   showUPIDetails?: boolean;
   businessLogo?: string | null;
+
+  // Seller snapshot (optional, for document generation)
+  sellerTradeName?: string | null;
+  sellerLegalName?: string | null;
+  sellerGSTIN?: string | null;
+  sellerPAN?: string | null;
+  sellerPhone?: string | null;
+  sellerEmail?: string | null;
+  sellerAddressLine1?: string | null;
+  sellerAddressLine2?: string | null;
+  sellerCity?: string | null;
+  sellerState?: string | null;
+  sellerStateCode?: string | null;
+  sellerPincode?: string | null;
+  sellerCountry?: string | null;
 
   notes?: string | null;
   termsAndConditions?: string | null;

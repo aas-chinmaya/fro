@@ -192,7 +192,6 @@ reset(mapped);
       billingCountry: "Customer country",
       placeOfSupply: "Place of supply",
       invoiceDate: "Invoice date",
-      invoiceDate: "Invoice date",
       termsAndConditions: "Terms & conditions",
       items: "Product items",
       sellerTradeName: "Business name",

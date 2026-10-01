@@ -78,7 +78,7 @@ export function InvoiceItemsTable({
             const discVal = num(item.discountValue ?? item.discount);
             const gross = qty * rate;
             const discountAmt =
-              num(item.discountAmount) ||
+              // num(item.discountAmount) ||
               (discType === "FIXED"
                 ? Math.min(discVal, gross)
                 : (gross * discVal) / 100);

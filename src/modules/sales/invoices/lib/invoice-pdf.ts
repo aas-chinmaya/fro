@@ -79,18 +79,18 @@ function lineNums(item: InvoiceItem, isInter: boolean) {
   const qty = num(item.quantity);
   const price = num(item.price ?? item.rate);
   const discountAmt = num(
-    item.discountAmount ??
+    // item.discountAmount ??
       (item.discountType === "PERCENTAGE"
         ? (qty * price * num(item.discount ?? item.discountValue)) / 100
         : num(item.discount ?? item.discountValue)),
   );
   const taxable = num(item.taxableAmount ?? Math.max(0, qty * price - discountAmt));
   const taxRate = num(item.taxRate);
-  const totalTax = num(item.totalTaxAmount ?? item.taxAmount ?? (taxable * taxRate) / 100);
+  const totalTax = num( item.taxAmount ?? (taxable * taxRate) / 100);
   const cgst = num(item.cgstAmount ?? (isInter ? 0 : totalTax / 2));
   const sgst = num(item.sgstAmount ?? (isInter ? 0 : totalTax / 2));
   const igst = num(item.igstAmount ?? (isInter ? totalTax : 0));
-  const total = num(item.lineTotal ?? item.total ?? item.amount ?? taxable + totalTax);
+  const total = num(item.total ?? item.amount ?? taxable + totalTax);
   return { qty, price, discountAmt, taxRate, cgst, sgst, igst, total };
 }
 

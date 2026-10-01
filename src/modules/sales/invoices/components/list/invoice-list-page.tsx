@@ -31,10 +31,9 @@ export default function InvoiceListPage() {
     status: status
       ? (status as
           | "DRAFT"
-          | "SENT"
+          | "ISSUED"
           | "PAID"
           | "PARTIALLY_PAID"
-          | "OVERDUE"
           | "CANCELLED")
       : undefined,
     ...invoiceDateRange(period),

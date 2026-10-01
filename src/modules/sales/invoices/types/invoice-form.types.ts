@@ -24,7 +24,7 @@ export interface InvoiceItemFormValues {
   productName?: string;
   itemCode?: string;
   unit?: string;
-  hsnSacCode?: string;
+  hsnSacCode?: string | null;
   classification?: "GOODS" | "SERVICES";
   quantity: number;
   rate: number;
@@ -49,7 +49,7 @@ export interface InvoiceItemFormValues {
   amount?: number;
   total?: number;
   grandTotal?: number;
-  description?: string;
+  description?: string | null;
   stockAvailable?: number | null;
 }
 
@@ -109,14 +109,15 @@ export interface InvoiceFormValues {
 
   paymentStatus?: PaymentStatus;
   paymentMethod?: string | null;
-  paidAmount?: number;
-  pendingAmount?: number;
+  paidAmount?: number | null;
+  pendingAmount?: number | null;
   paymentDate?: string | null;
   transactionId?: string | null;
   receivedAccount?: string;
 
   notes?: string | null;
   termsAndConditions: string;
+  signature?: string | null;
 
   // Seller snapshot (read-only from session, sent for document print)
   sellerLegalName?: string;

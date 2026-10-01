@@ -195,7 +195,7 @@ export function InvoicePaymentSection() {
               inputMode="decimal"
               className="h-9"
               value={
-                paidAmount === null || paidAmount === undefined || paidAmount === ""
+                paidAmount === null || paidAmount === undefined
                   ? ""
                   : String(Number(paidAmount) || 0)
               }
