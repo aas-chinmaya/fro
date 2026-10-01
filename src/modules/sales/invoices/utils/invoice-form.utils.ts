@@ -31,7 +31,7 @@ export function toIsoDateTime(
 }
 
 export function formatINR(value: number) {
-  return `₹${Number(value || 0).toLocaleString("en-IN", {
+  return `${Number(value || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -145,7 +145,7 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
     buyerEmail: null,
     buyerGSTIN: "",
     buyerPAN: "",
-    buyerType: "UNREGISTERED",
+    buyerType: "REGISTERED",
     billingAddressLine1: "",
     billingAddressLine2: "",
     billingCity: "",

@@ -260,7 +260,7 @@ export function InvoiceItemRow({
         <div className="font-medium text-slate-700">
           IGST {line.igstRate || 0}%
         </div>
-        <div className="tabular-nums">₹{formatINR(line.igstAmount)}</div>
+        <div className="tabular-nums">{formatINR(line.igstAmount)}</div>
       </div>
     ) : (
       <div className="space-y-0.5 text-[10px] leading-tight text-slate-600">
@@ -268,13 +268,13 @@ export function InvoiceItemRow({
           <span className="font-medium text-slate-700">
             CGST {line.cgstRate || 0}%
           </span>{" "}
-          <span className="tabular-nums">₹{formatINR(line.cgstAmount)}</span>
+          <span className="tabular-nums">{formatINR(line.cgstAmount)}</span>
         </div>
         <div>
           <span className="font-medium text-slate-700">
             SGST {line.sgstRate || 0}%
           </span>{" "}
-          <span className="tabular-nums">₹{formatINR(line.sgstAmount)}</span>
+          <span className="tabular-nums">{formatINR(line.sgstAmount)}</span>
         </div>
       </div>
     )

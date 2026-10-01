@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -10,8 +12,11 @@ export function SalesTable({
   minWidth?: string;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm" style={{ minWidth }}>
+    <div className="w-full overflow-x-auto">
+      <table
+        className="w-full border-collapse text-sm"
+        style={{ minWidth }}
+      >
         {children}
       </table>
     </div>
@@ -37,19 +42,25 @@ export function SalesTh({
   className?: string;
   align?: "left" | "center" | "right";
 }) {
-  const a =
-    align === "center"
-      ? "text-center"
-      : align === "right"
-        ? "text-right"
-        : "text-left";
-  return <th className={`px-1 py-2.5 ${a} ${className}`}>{children}</th>;
+  const alignment = {
+    left: "text-left",
+    center: "text-center",
+    right: "text-right",
+  }[align];
+
+  return (
+    <th
+      className={`whitespace-nowrap px-2 py-2.5 sm:px-3 ${alignment} ${className}`}
+    >
+      {children}
+    </th>
+  );
 }
 
 export function SalesTableFoot({ children }: { children: ReactNode }) {
   return (
     <tfoot>
-      <tr className="bg-amber-50 text-sm font-semibold text-slate-800">
+      <tr className="border-t border-slate-200 bg-amber-50 text-sm font-semibold text-slate-800">
         {children}
       </tr>
     </tfoot>
@@ -67,12 +78,18 @@ export function SalesSectionCard({
 }) {
   return (
     <section className="min-w-0 overflow-visible rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-3 sm:px-4">
+      <div className="flex flex-col gap-2 border-b border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <h3 className="text-sm font-semibold tracking-tight text-slate-800">
           {title}
         </h3>
-        {headerRight}
+
+        {headerRight && (
+          <div className="flex min-w-0 items-center gap-2">
+            {headerRight}
+          </div>
+        )}
       </div>
+
       <div className="min-w-0 overflow-visible p-3 sm:p-4 md:p-5">
         {children}
       </div>
@@ -80,7 +97,6 @@ export function SalesSectionCard({
   );
 }
 
-/** Primary + / red − row actions */
 export function SalesRowAddButton({
   onClick,
   label = "Add",
@@ -92,8 +108,8 @@ export function SalesRowAddButton({
     <button
       type="button"
       onClick={onClick}
-      className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
       aria-label={label}
+      className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-full bg-primary text-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
     >
       <svg
         viewBox="0 0 24 24"
@@ -119,8 +135,8 @@ export function SalesRowRemoveButton({
     <button
       type="button"
       onClick={onClick}
-      className="grid size-6 shrink-0 place-items-center rounded-full bg-red-500 text-white hover:bg-red-600"
       aria-label={label}
+      className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
     >
       <svg
         viewBox="0 0 24 24"
@@ -135,36 +151,37 @@ export function SalesRowRemoveButton({
   );
 }
 
-/** Rs / % discount toggle — primary active state */
 export function SalesDiscountToggle({
   value,
   onChange,
 }: {
   value: "PERCENTAGE" | "FIXED";
-  onChange: (v: "PERCENTAGE" | "FIXED") => void;
+  onChange: (value: "PERCENTAGE" | "FIXED") => void;
 }) {
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-600">
-      <span>Discount :</span>
-      <div className="inline-flex items-center rounded-full border border-slate-200 bg-white p-0.5">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+      <span className="whitespace-nowrap font-medium">Discount:</span>
+
+      <div className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 p-0.5">
         <button
           type="button"
           onClick={() => onChange("FIXED")}
-          className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+          className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
             value === "FIXED"
-              ? "bg-primary text-primary-foreground"
-              : "text-slate-600 hover:bg-slate-50"
+              ? "bg-primary text-white"
+              : "text-slate-600 hover:bg-white hover:text-slate-800"
           }`}
         >
           Rs
         </button>
+
         <button
           type="button"
           onClick={() => onChange("PERCENTAGE")}
-          className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+          className={`cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
             value === "PERCENTAGE"
-              ? "bg-primary text-primary-foreground"
-              : "text-slate-600 hover:bg-slate-50"
+              ? "bg-primary text-white"
+              : "text-slate-600 hover:bg-white hover:text-slate-800"
           }`}
         >
           %

@@ -7,6 +7,9 @@ import { businessService } from "../services/business.service";
 export interface BranchByUserBusinessRecord {
   id?: string | number;
   tenantId?: string | number;
+  businessType?: string | null;
+  gstin?: string | null;
+  pan?: string | null;
   displayName?: string | null;
   legalName?: string | null;
   tradeName?: string | null;
@@ -23,11 +26,15 @@ export interface BranchByUserBranchRecord {
   branchName?: string | null;
   branchCode?: string | null;
   addressLine1?: string | null;
+  addressLine2?: string | null;
   city?: string | null;
   state?: string | null;
+  pincode?: string | null;
   country?: string | null;
   phone?: string | null;
   email?: string | null;
+  gstin?: string | null;
+  pan?: string | null;
   branchManager?: string | null;
   status?: string | null;
   isActive?: boolean | null;
@@ -64,6 +71,7 @@ export function useBranchByUser(): UseBranchByUserReturn {
   const [data, setData] = useState<BranchByUserResponseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
   const [debug, setDebug] = useState<BranchByUserDebug>({
     method: "GET",
     endpoint,
@@ -79,9 +87,11 @@ export function useBranchByUser(): UseBranchByUserReturn {
       setError(null);
 
       const response = await businessService.getBranchDetailsByUser();
+
       const nextData = (response ?? null) as BranchByUserResponseData | null;
 
       setData(nextData);
+
       setDebug({
         method: "GET",
         endpoint,
@@ -97,10 +107,14 @@ export function useBranchByUser(): UseBranchByUserReturn {
         response: nextData,
       });
     } catch (err) {
-      const nextError = err instanceof Error ? err : new Error("Failed to fetch branch details");
+      const nextError =
+        err instanceof Error
+          ? err
+          : new Error("Failed to fetch branch details");
 
       setError(nextError);
       setData(null);
+
       setDebug({
         method: "GET",
         endpoint,

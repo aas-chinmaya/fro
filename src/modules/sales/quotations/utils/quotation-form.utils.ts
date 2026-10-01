@@ -151,7 +151,7 @@ export interface LineCalcResult {
 /**
  * Real-time line calculation.
  * - discountType PERCENTAGE → % of gross
- * - discountType FIXED → absolute ₹ (capped at gross)
+ * - discountType FIXED → absolute  (capped at gross)
  * - taxType INTER_STATE → full tax as IGST
  * - taxType INTRA_STATE → split 50/50 CGST + SGST
  */
