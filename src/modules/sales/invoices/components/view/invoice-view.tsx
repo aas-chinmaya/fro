@@ -11,7 +11,7 @@ import type { Invoice } from "../../types/invoice.types";
 import { generateInvoicePdf } from "../../lib/invoice-pdf";
 import { InvoiceViewHeader } from "./header/invoice-view-header";
 import { InvoicePreview } from "./invoice-preview";
-
+import { useBusiness } from "@/modules/sales/shared/hooks/use-business"; // ← add this import
 interface InvoiceViewProps {
   id: string;
 }
@@ -27,6 +27,7 @@ export function InvoiceView({ id }: InvoiceViewProps) {
     isFetching,
     error: queryError,
   } = useGetInvoiceByIdQuery(id, { skip: !id });
+const { data: businessCtx, isLoading: businessLoading } = useBusiness();  
 
   const [, { isLoading: apiPdfLoading }] = useDownloadInvoicePdfMutation();
 
@@ -47,18 +48,23 @@ export function InvoiceView({ id }: InvoiceViewProps) {
     if (error && !invoice) notify.error(error);
   }, [error, invoice]);
 
-  const handleDownload = () => {
-    if (!invoice) return;
-    try {
-      setPdfBusy(true);
-      generateInvoicePdf(invoice);
-      notify.success("PDF downloaded");
-    } catch {
-      notify.error("Unable to generate PDF");
-    } finally {
-      setPdfBusy(false);
-    }
-  };
+const handleDownload = () => {
+  if (!invoice) return;
+  try {
+    setPdfBusy(true);
+
+    generateInvoicePdf({
+      ...invoice,
+      businessLogo: businessCtx?.business?.logo?.trim() || null, // ← add logo here
+    });
+
+    notify.success("PDF downloaded");
+  } catch {
+    notify.error("Unable to generate PDF");
+  } finally {
+    setPdfBusy(false);
+  }
+};
 
   if ((isLoading || isFetching) && !invoice) {
     return (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFormContext, useWatch } from "react-hook-form";
@@ -22,7 +23,6 @@ import {
 import { FormField } from "@/modules/sales/shared/components/ui/form-field";
 import type { InvoiceFormValues } from "../../types/invoice-form.types";
 import type { InvoiceType } from "../../types/invoice.types";
-import { sanitizeBusinessLogo } from "../../utils/invoice-form.utils";
 
 const INVOICE_TYPES: { value: InvoiceType; label: string }[] = [
   { value: "B2B", label: "B2B" },
@@ -31,10 +31,6 @@ const INVOICE_TYPES: { value: InvoiceType; label: string }[] = [
   { value: "SEZ", label: "SEZ" },
 ];
 
-/**
- * Invoice issuer — same layout as quotation:
- * title → logo + business card → bank toggles → bank details → type/currency/date
- */
 export function InvoiceIssuerFields() {
   const { control, register, setValue } =
     useFormContext<InvoiceFormValues>();
@@ -59,27 +55,15 @@ export function InvoiceIssuerFields() {
     .filter(Boolean)
     .join(", ");
 
-  const onLogoFile = (file: File | undefined) => {
-    if (!file || file.size > 1_500_000) return;
-    // Only allow common image mime types
-    if (!/^image\/(jpeg|jpg|png|webp|gif)$/i.test(file.type || "")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const cleaned = sanitizeBusinessLogo(reader.result);
-      if (!cleaned) return;
-      setValue("businessLogo", cleaned, { shouldDirty: true });
-    };
-    reader.readAsDataURL(file);
-  };
-
   return (
     <div className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         From (your business)
       </p>
 
-      {/* Logo + business card */}
+      {/* Logo (display only) + business card */}
       <div className="flex flex-row items-start gap-3">
+        {/* Logo - SHOW ONLY */}
         <div className="order-2 ml-auto flex shrink-0 flex-col items-center gap-1.5">
           <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
             {logo ? (
@@ -93,31 +77,9 @@ export function InvoiceIssuerFields() {
               <ImageIcon className="h-6 w-6 text-slate-300" />
             )}
           </div>
-          <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-            {logo ? "Change logo" : "Choose file"}
-            <input
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(e) => {
-                onLogoFile(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          {logo ? (
-            <button
-              type="button"
-              className="text-[10px] text-red-500 hover:text-red-600"
-              onClick={() =>
-                setValue("businessLogo", null, { shouldDirty: true })
-              }
-            >
-              Remove
-            </button>
-          ) : null}
         </div>
 
+        {/* Business card */}
         <div className="order-1 min-w-0 flex-1 space-y-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-sm">
           <div className="flex items-start gap-2">
             <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
@@ -153,7 +115,7 @@ export function InvoiceIssuerFields() {
         </div>
       </div>
 
-      {/* Invoice-specific: type, currency, date */}
+      {/* Invoice type + Currency */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-xs text-slate-600">Invoice type</Label>
@@ -178,6 +140,7 @@ export function InvoiceIssuerFields() {
             </SelectContent>
           </Select>
         </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs text-slate-600">Currency</Label>
           <Select value="INR" disabled>
@@ -191,6 +154,7 @@ export function InvoiceIssuerFields() {
         </div>
       </div>
 
+      {/* Invoice date */}
       <FormField label="Invoice date" required>
         <div className="relative">
           <Calendar className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
