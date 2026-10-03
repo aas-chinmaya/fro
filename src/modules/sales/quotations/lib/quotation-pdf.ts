@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import type { Quotation, QuotationItem } from "../types/quotation.types";
+import { RUPEE_PNG_DATA_URL } from "./rupee-icon";
 
 function formatDate(v?: string | null) {
   if (!v) return "—";
@@ -26,8 +27,8 @@ function num(v: unknown) {
 
 function currencySymbol(code?: string | null) {
   const c = (code || "INR").toUpperCase();
-  // Helvetica has no ₹ — use ASCII-safe "Rs." for INR
-  if (c === "INR" || c === "RS" || c === "RUPEE" || c === "RUPEES") return "Rs. ";
+  // Prefer ₹ (drawn slightly smaller next to amount in summary)
+  if (c === "INR" || c === "RS" || c === "RUPEE" || c === "RUPEES") return "₹";
   if (c === "USD") return "USD ";
   if (c === "EUR") return "EUR ";
   if (c === "GBP") return "GBP ";
@@ -70,22 +71,60 @@ function numberToWords(n: number): string {
   return out + " Only";
 }
 
-function stripHtml(html?: string | null) {
-  return (html || "").replace(/<[^>]+>/g, "").trim();
+/** Convert HTML terms (ul/li/p) into clean numbered lines for PDF. */
+function htmlToTermLines(html?: string | null): string[] {
+  if (!html) return [];
+  let s = String(html).trim();
+  if (!s) return [];
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+  const liMatches = s.match(/<li\b[^>]*>([\s\S]*?)<\/li>/gi);
+  if (liMatches && liMatches.length > 0) {
+    return liMatches
+      .map((li) =>
+        li
+          .replace(/<li\b[^>]*>/i, "")
+          .replace(/<\/li>/i, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim(),
+      )
+      .filter(Boolean);
+  }
+
+  const plain = s
+    .replace(/<\/(p|div|br|li|h[1-6])>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return [];
+  const lines = plain
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.length ? lines : [plain];
 }
 
 function lineNums(item: QuotationItem, isInter: boolean) {
   const qty = num(item.quantity);
+  // Prefer unitPrice (form key), then price, then rate
   const price = num(item.price ?? item.rate);
   const discountAmt = num(
-    item.discountAmount ??
+    // item.discountAmount ??
       (item.discountType === "PERCENTAGE"
         ? (qty * price * num(item.discount ?? item.discountValue)) / 100
         : num(item.discount ?? item.discountValue)),
   );
   const taxable = num(item.taxableAmount ?? Math.max(0, qty * price - discountAmt));
   const taxRate = num(item.taxRate);
-  const totalTax = num(item.totalTaxAmount ?? item.taxAmount ?? (taxable * taxRate) / 100);
+  const totalTax = num( item.taxAmount ?? (taxable * taxRate) / 100);
   const cgst = num(item.cgstAmount ?? (isInter ? 0 : totalTax / 2));
   const sgst = num(item.sgstAmount ?? (isInter ? 0 : totalTax / 2));
   const igst = num(item.igstAmount ?? (isInter ? totalTax : 0));
@@ -103,7 +142,7 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
 
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const m = 12;
+  const m = 4;
   const contentW = pageW - m * 2;
   const BLACK = 30;
   const MUTED = 100;
@@ -132,89 +171,81 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
   };
 
   drawOuter();
-  let y = m + 7;
+  let y = m + 5;
 
-  // Title
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.setTextColor(BLACK);
-  pdf.text("QUOTATION", pageW / 2, y, { align: "center" });
-  y += 4.5;
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(MUTED);
-  pdf.text(
-    `Date: ${formatDate(quotation.quotationDate)}   ·   Valid till: ${formatDate(quotation.validUntil)}`,
-    pageW / 2,
-    y,
-    { align: "center" },
-  );
-  y += 3.5;
-  hLine(y, BLACK, 0.35);
-  y += 0.5;
+  // ═══════════════════════════════════════════════════════════
+  // ROW 1: Logo (left) | 5 meta fields as normal text (right)
+  // ROW 2: Quotation From | Quotation For  (2 columns only)
+  // Matches quotation-document.tsx exactly
+  // ═══════════════════════════════════════════════════════════
+  const logo = quotation.businessLogo?.trim();
+  const hasLogo =
+    !!logo &&
+    (logo.startsWith("data:image/") || /^https?:\/\//i.test(logo));
+  const logoSize = 27;
 
-  // Meta — 3 equal columns
-  const metaH = 9;
-  const colW = contentW / 3;
-  pdf.setDrawColor(LINE);
-  pdf.setLineWidth(0.2);
-  pdf.line(m + colW, y, m + colW, y + metaH);
-  pdf.line(m + colW * 2, y, m + colW * 2, y + metaH);
-  hLine(y + metaH, BLACK, 0.3);
+  const placeOfSupply = quotation.placeOfSupply
+    ? `${quotation.placeOfSupply}${quotation.placeOfSupplyCode ? ` (${quotation.placeOfSupplyCode})` : ""}`
+    : "—";
 
-  const meta = [
-    { label: "Quotation No.", value: quotation.quotationNumber || "—" },
+  // Logo (left)
+  if (hasLogo) {
+    try {
+      const fmt = logo!.includes("png")
+        ? "PNG"
+        : logo!.includes("webp")
+          ? "WEBP"
+          : "JPEG";
+      pdf.addImage(
+        logo!,
+        fmt as "PNG" | "JPEG" | "WEBP",
+        m + 3,
+        y,
+        logoSize,
+        logoSize,
+      );
+    } catch {
+      /* ignore */
+    }
+  } else {
+    const bizName =
+      quotation.businessName || quotation.businessLegalName || "";
+    if (bizName) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(BLACK);
+      pdf.text(bizName.slice(0, 24), m + 3, y + 8);
+    }
+  }
+
+  // Meta details — RIGHT side: bold label + normal value
+  const metaRows = [
+    { label: "Quotation No", value: quotation.quotationNumber || "—" },
+    { label: "Quotation Date", value: formatDate(quotation.quotationDate) },
+    { label: "Valid Till", value: formatDate(quotation.validUntil) },
+    { label: "Country of Supply", value: quotation.prospectCountry || "India" },
+    { label: "Place of Supply", value: placeOfSupply },
     { label: "Status", value: formatLabel(quotation.quotationStatus) },
-    {
-      label: "Place of Supply",
-      value: quotation.placeOfSupply
-        ? `${quotation.placeOfSupply}${quotation.placeOfSupplyCode ? ` (${quotation.placeOfSupplyCode})` : ""}`
-        : "—",
-    },
   ];
-  meta.forEach((item, i) => {
-    const x = m + 2.5 + i * colW;
+  let metaY = y + 2.5;
+  const rightX = pageW - m - 3;
+  metaRows.forEach((row) => {
+    const labelPart = `${row.label}: `;
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6);
-    pdf.setTextColor(MUTED);
-    pdf.text(item.label, x, y + 3.2);
+    pdf.setFontSize(7.5);
+    const valW = pdf.getTextWidth(row.value);
+    pdf.setTextColor(BLACK);
+    pdf.text(row.value, rightX, metaY, { align: "right" });
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7.5);
-    pdf.setTextColor(BLACK);
-    pdf.text(pdf.splitTextToSize(String(item.value), colW - 5)[0], x, y + 6.8);
+    pdf.text(labelPart, rightX - valW - 0.5, metaY, { align: "right" });
+    metaY += 3.8;
   });
-  y += metaH;
 
-  // Party sections
-  const section = (
-    title: string,
-    rows: { label: string; value?: string | null }[],
-  ) => {
-    const valid = rows.filter((r) => r.value);
-    if (!valid.length) return;
-    const rowH = 4;
-    const headH = 5;
-    y = ensureSpace(headH + valid.length * rowH + 2, y);
-    hLine(y, BLACK, 0.25);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(7);
-    pdf.setTextColor(BLACK);
-    pdf.text(title.toUpperCase(), m + 2.5, y + 3.5);
-    y += headH;
-    hLine(y, LINE, 0.2);
-    valid.forEach((row) => {
-      y += rowH;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(7);
-      pdf.setTextColor(MUTED);
-      pdf.text(row.label, m + 2.5, y);
-      pdf.setTextColor(BLACK);
-      const lines = pdf.splitTextToSize(String(row.value), contentW - 46);
-      pdf.text(lines[0], m + 38, y);
-    });
-    y += 1.5;
-  };
+  y += Math.max(logoSize + 2, metaRows.length * 3.8 + 2);
+  hLine(y, BLACK, 0.35);
 
+  // ── ROW 2: Quotation From | Quotation For (2 columns only) ──
   const fromAddr = [
     quotation.businessAddressLine1,
     quotation.businessAddressLine2,
@@ -225,15 +256,6 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
   ]
     .filter(Boolean)
     .join(", ");
-
-  section("Quotation From", [
-    { label: "Business", value: quotation.businessLegalName || quotation.businessName },
-    { label: "Address", value: fromAddr || null },
-    { label: "GSTIN", value: quotation.businessGSTIN },
-    { label: "PAN", value: quotation.businessPAN },
-    { label: "Phone", value: quotation.businessPhone },
-    { label: "Email", value: quotation.businessEmail },
-  ]);
 
   const toAddr = [
     quotation.prospectAddressLine1,
@@ -246,21 +268,122 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
     .filter(Boolean)
     .join(", ");
 
-  section("Quotation For", [
-    { label: "Customer", value: quotation.prospectCompanyName || quotation.prospectName },
-    {
-      label: "Contact",
-      value:
-        quotation.prospectCompanyName && quotation.prospectName
-          ? quotation.prospectName
-          : null,
-    },
-    { label: "Address", value: toAddr || null },
-    { label: "GSTIN", value: quotation.prospectGSTIN },
-    { label: "PAN", value: quotation.prospectPAN },
-    { label: "Phone", value: quotation.prospectPhone },
-    { label: "Email", value: quotation.prospectEmail },
-  ]);
+  type ColLine = { label?: string; text: string; bold?: boolean };
+
+  const fromLines: ColLine[] = [];
+  const fromName = quotation.businessLegalName || quotation.businessName;
+  if (fromName) fromLines.push({ text: fromName, bold: true });
+  if (fromAddr) fromLines.push({ text: fromAddr });
+  if (quotation.businessGSTIN)
+    fromLines.push({ label: "GSTIN", text: quotation.businessGSTIN });
+  if (quotation.businessPAN)
+    fromLines.push({ label: "PAN", text: quotation.businessPAN });
+  if (quotation.businessEmail)
+    fromLines.push({ label: "Email", text: quotation.businessEmail });
+  if (quotation.businessPhone)
+    fromLines.push({ label: "Phone", text: quotation.businessPhone });
+
+  const toLines: ColLine[] = [];
+  const toName = quotation.prospectCompanyName || quotation.prospectName;
+  if (toName) toLines.push({ text: toName, bold: true });
+  if (
+    quotation.prospectName &&
+    quotation.prospectCompanyName &&
+    quotation.prospectName !== quotation.prospectCompanyName
+  ) {
+    toLines.push({ text: quotation.prospectName });
+  }
+  if (toAddr) toLines.push({ text: toAddr });
+  if (quotation.prospectGSTIN)
+    toLines.push({ label: "GSTIN", text: quotation.prospectGSTIN });
+  if (quotation.prospectPAN)
+    toLines.push({ label: "PAN", text: quotation.prospectPAN });
+  if (quotation.prospectEmail)
+    toLines.push({ label: "Email", text: quotation.prospectEmail });
+  if (quotation.prospectPhone)
+    toLines.push({ label: "Phone", text: quotation.prospectPhone });
+
+  const halfW = contentW / 2;
+  const midX = m + halfW;
+  const pad = 3;
+  const lineH = 3.4;
+
+  const measureParty = (lines: ColLine[]) => {
+    let h = 5;
+    pdf.setFontSize(6.5);
+    lines.forEach((ln) => {
+      const full = ln.label ? `${ln.label}: ${ln.text}` : ln.text;
+      const w = pdf.splitTextToSize(full, halfW - pad * 2) as string[];
+      h += w.length * lineH;
+    });
+    return h + 2;
+  };
+
+  const boxH = Math.max(measureParty(fromLines), measureParty(toLines), 24);
+  y = ensureSpace(boxH + 1, y);
+  const boxTop = y;
+
+  // Vertical divider between From | For
+  pdf.setDrawColor(BLACK);
+  pdf.setLineWidth(0.25);
+  pdf.line(midX, boxTop, midX, boxTop + boxH);
+  hLine(boxTop + boxH, BLACK, 0.3);
+
+  const drawPartyCol = (
+    title: string,
+    lines: ColLine[],
+    x0: number,
+  ) => {
+    let cy = boxTop + 4;
+    // Section title — bigger + bold
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(BLACK);
+    pdf.text(title, x0 + pad, cy);
+    cy += 4.5;
+    lines.forEach((ln) => {
+      if (ln.label) {
+        // Label bold, value normal
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(BLACK);
+        const prefix = `${ln.label}: `;
+        pdf.text(prefix, x0 + pad, cy);
+        const lw = pdf.getTextWidth(prefix);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.5);
+        const rest = pdf.splitTextToSize(
+          ln.text,
+          halfW - pad * 2 - lw,
+        ) as string[];
+        pdf.text(rest[0] || "", x0 + pad + lw, cy);
+        for (let i = 1; i < rest.length; i++) {
+          cy += lineH;
+          pdf.text(rest[i], x0 + pad, cy);
+        }
+      } else {
+        // Name bold; address normal
+        pdf.setFont("helvetica", ln.bold ? "bold" : "normal");
+        pdf.setFontSize(ln.bold ? 8.5 : 7);
+        pdf.setTextColor(ln.bold ? BLACK : MUTED);
+        const wrapped = pdf.splitTextToSize(
+          ln.text,
+          halfW - pad * 2,
+        ) as string[];
+        pdf.text(wrapped[0] || "", x0 + pad, cy);
+        for (let i = 1; i < wrapped.length; i++) {
+          cy += lineH;
+          pdf.text(wrapped[i], x0 + pad, cy);
+        }
+      }
+      cy += lineH + 0.2;
+    });
+  };
+
+  drawPartyCol("Quotation From", fromLines, m);
+  drawPartyCol("Quotation For", toLines, midX);
+
+  y = boxTop + boxH;
 
   // Items table header
   const cols = isInter
@@ -274,11 +397,11 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
   pdf.setFontSize(6.5);
   pdf.setTextColor(BLACK);
   pdf.text("#", cols.h, y);
-  pdf.text("Item name", cols.item, y);
+  pdf.text("Item", cols.item, y);
   pdf.text("HSN/SAC", cols.hsn, y);
   pdf.text("Qty", cols.qty, y);
   pdf.text("UOM", cols.uom, y);
-  pdf.text("Price", cols.priceR, y, { align: "right" });
+  pdf.text("Unit Price", cols.priceR, y, { align: "right" });
   pdf.text("Discount", cols.discR, y, { align: "right" });
   if (isInter) {
     pdf.text("IGST", cols.t1R, y, { align: "right" });
@@ -293,12 +416,17 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
   const items = quotation.items || [];
   const nameW = cols.hsn - cols.item - 2;
 
+  // Columns: # | Item (name+desc) | HSN/SAC | Qty | UOM | Price | Discount | CGST/SGST or IGST | Total
   items.forEach((item, idx) => {
     const { qty, price, discountAmt, taxRate, cgst, sgst, igst, total } =
       lineNums(item, isInter);
-    const hsn = String(item.hsnSacCode ?? item.hsnSac ?? "—").slice(0, 12);
+    const hsn = String(
+      item.hsnSacCode || (item as { hsnSac?: string }).hsnSac || "—",
+    ).slice(0, 12);
     const name = String(item.itemName || "—");
-    const desc = item.description ? String(item.description) : "";
+    const desc = item.description
+      ? String(item.description).replace(/<[^>]+>/g, "").trim()
+      : "";
 
     pdf.setFontSize(7);
     const nameLines = pdf.splitTextToSize(name, nameW) as string[];
@@ -393,22 +521,53 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
     summaryRows.push({ label: "SGST", value: cur + fmtAmt(sgstAmt) });
   }
   summaryRows.push({
-    label: "Total (" + currency + ")",
+    label: "Total",
     value: cur + fmtAmt(grand),
-    bold: true,
+    bold: false,
   });
 
-  // Compact right-aligned summary — same font size throughout
+  // Compact right-aligned summary — normal text (Total slightly emphasized)
   y = ensureSpace(summaryRows.length * 4 + 4, y);
-  const labelX = pageW - m - 48;
+  const labelX = pageW - m - 55;
   const valueX = pageW - m - 4;
+  const isInr =
+    !quotation.currency ||
+    ["INR", "RS", "RUPEE", "RUPEES"].includes(
+      String(quotation.currency).toUpperCase(),
+    );
+  // Small ₹ icon size (mm) — appropriate next to 7.5pt amounts
+  const rupeeW = 1.7;
+  const rupeeH = 2.2;
+
   summaryRows.forEach((row) => {
     y += 4;
-    pdf.setFont("helvetica", row.bold ? "bold" : "normal");
+    pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7.5);
     pdf.setTextColor(BLACK);
     pdf.text(row.label, labelX, y, { align: "right" });
-    pdf.text(row.value, valueX, y, { align: "right" });
+    if (isInr && row.value.startsWith("₹")) {
+      const numPart = row.value.slice(1).trim();
+      const numW = pdf.getTextWidth(numPart);
+      // number right-aligned; tiny ₹ icon just left of it
+      pdf.text(numPart, valueX, y, { align: "right" });
+      try {
+        pdf.addImage(
+          RUPEE_PNG_DATA_URL,
+          "PNG",
+          valueX - numW - rupeeW - 0.6,
+          y - rupeeH + 0.35,
+          rupeeW,
+          rupeeH,
+        );
+      } catch {
+        // fallback text if image fails
+        pdf.setFontSize(6.5);
+        pdf.text("Rs.", valueX - numW - 0.5, y, { align: "right" });
+        pdf.setFontSize(7.5);
+      }
+    } else {
+      pdf.text(row.value, valueX, y, { align: "right" });
+    }
   });
   y += 2.5;
   hLine(y, BLACK, 0.3);
@@ -441,24 +600,33 @@ export function buildQuotationPdf(quotation: Quotation): jsPDF {
   y = Math.max(y + wordLines.length * 3.2 + 6, y + 20);
   hLine(y, BLACK, 0.25);
 
-  // Terms only — internal notes never printed
-  const terms = stripHtml(quotation.termsAndConditions);
-  if (terms) {
-    y = ensureSpace(14, y);
-    y += 4;
+  // Payment details intentionally omitted on PDF
+
+  // Terms — parse HTML list into numbered lines (same as view page)
+  const termLines = htmlToTermLines(quotation.termsAndConditions);
+  if (termLines.length) {
+    y = ensureSpace(10 + termLines.length * 4, y);
+    y += 3.5;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7);
     pdf.setTextColor(BLACK);
     pdf.text("Terms & Conditions", m + 2.5, y);
-    y += 3.2;
+    y += 3;
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6.5);
+    pdf.setFontSize(6.2);
     pdf.setTextColor(MUTED);
-    const tLines = (pdf.splitTextToSize(terms, contentW - 6) as string[]).slice(
-      0,
-      10,
-    );
-    pdf.text(tLines, m + 2.5, y);
+    const maxW = contentW - 10;
+    termLines.forEach((line, idx) => {
+      const prefix = `${idx + 1}. `;
+      const wrapped = pdf.splitTextToSize(line, maxW - 6) as string[];
+      y = ensureSpace(wrapped.length * 3 + 1, y);
+      pdf.text(prefix + (wrapped[0] || ""), m + 2.5, y);
+      for (let i = 1; i < wrapped.length; i++) {
+        y += 2.8;
+        pdf.text(wrapped[i], m + 7, y);
+      }
+      y += 3.2;
+    });
   }
 
   // Footer

@@ -144,7 +144,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
 
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const m = 12;
+  const m = 4;
   const contentW = pageW - m * 2;
   const BLACK = 30;
   const MUTED = 100;

@@ -418,6 +418,7 @@ export function getDefaultQuotationValues(): QuotationFormValues {
     businessStateCode: null,
     businessPincode: null,
     businessCountry: "India",
+    businessLogo: null,
 
     prospectName: "",
     prospectCompanyName: null,
@@ -485,6 +486,7 @@ export function mapQuotationToFormValues(
     businessPincode: q.businessPincode ?? null,
     businessCountry:
       q.businessCountry ?? "India",
+    businessLogo: q.businessLogo ?? null,
 
     prospectName: q.prospectName ?? "",
     prospectCompanyName:

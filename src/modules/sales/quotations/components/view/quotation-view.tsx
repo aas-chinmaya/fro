@@ -12,6 +12,7 @@ import type { Quotation } from "../../types/quotation.types";
 import { generateQuotationPdf } from "../../lib/quotation-pdf";
 import { QuotationViewHeader } from "./header/quotation-view-header";
 import { QuotationPreview } from "./quotation-preview";
+import { useBusiness } from "@/modules/sales/shared/hooks/use-business";
 
 interface QuotationViewProps {
   id: string;
@@ -29,6 +30,8 @@ export function QuotationView({ id }: QuotationViewProps) {
     error: queryError,
   } = useGetQuotationByIdQuery(id, { skip: !id });
 
+  const { data: businessCtx } = useBusiness();
+
   const [updateStatus, { isLoading: statusLoading }] =
     useUpdateQuotationStatusMutation();
 
@@ -39,7 +42,18 @@ export function QuotationView({ id }: QuotationViewProps) {
   if (quotationFromQuery) {
     stableQuotation.current = quotationFromQuery;
   }
-  const quotation = stableQuotation.current;
+
+  // Same logo source for view page + PDF (from business context) — mirrors invoice
+  const logoFromBusiness = businessCtx?.business?.logo?.trim() || null;
+  const quotation = stableQuotation.current
+    ? {
+        ...stableQuotation.current,
+        businessLogo:
+          logoFromBusiness ||
+          stableQuotation.current.businessLogo ||
+          null,
+      }
+    : null;
 
   const error = queryError
     ? (queryError as { data?: { message?: string }; message?: string })?.data
@@ -76,6 +90,7 @@ export function QuotationView({ id }: QuotationViewProps) {
     if (!quotation) return;
     try {
       setPdfBusy(true);
+      // quotation already includes businessLogo from business context
       generateQuotationPdf(quotation);
       notify.success("PDF downloaded");
     } catch {

@@ -17,6 +17,9 @@ interface QuotationSummaryProps {
   quotation: Quotation;
 }
 
+/**
+ * View summary — totals only, normal text, ₹ prefix.
+ */
 export function QuotationSummary({ quotation }: QuotationSummaryProps) {
   const taxType = quotation.taxType as TaxType | null | undefined;
   const isInter = taxType === "INTER_STATE";
@@ -30,12 +33,12 @@ export function QuotationSummary({ quotation }: QuotationSummaryProps) {
   const grandTotal = num(quotation.grandTotal);
 
   return (
-    <div className="flex justify-end border-t border-slate-800">
-      <div className="w-full text-[10px] sm:w-[min(100%,340px)] sm:text-[11px]">
+    <div className="border-t border-slate-800">
+      <div className="ml-auto w-full max-w-[340px] text-[10px] font-normal text-slate-800 sm:text-[11px]">
         <SummaryRow label="Taxable Amount" value={formatCurrency(taxable)} />
-        {discount > 0 ? (
+        {discount > 0 && (
           <SummaryRow label="Discount" value={formatCurrency(discount)} />
-        ) : null}
+        )}
         {isInter ? (
           <SummaryRow label="IGST" value={formatCurrency(igst)} />
         ) : (
@@ -44,14 +47,14 @@ export function QuotationSummary({ quotation }: QuotationSummaryProps) {
             <SummaryRow label="SGST" value={formatCurrency(sgst)} />
           </>
         )}
-        {roundOff !== 0 ? (
+        {roundOff !== 0 && (
           <SummaryRow label="Round Off" value={formatCurrency(roundOff)} />
-        ) : null}
-        <div className="flex justify-between sm:justify-end">
-          <span className="px-2 py-1 text-right font-semibold sm:w-[185px]">
+        )}
+        <div className="flex justify-end border-t border-slate-800">
+          <span className="px-2 py-1.5 text-right font-medium sm:w-[185px]">
             Total ({quotation.currency || "INR"})
           </span>
-          <span className="px-2 py-1 text-right font-bold sm:w-[105px]">
+          <span className="px-2 py-1.5 text-right font-medium sm:w-[120px]">
             {formatCurrency(grandTotal)}
           </span>
         </div>
@@ -62,11 +65,11 @@ export function QuotationSummary({ quotation }: QuotationSummaryProps) {
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b border-slate-800 sm:justify-end">
-      <span className="px-2 py-1 text-right font-medium sm:w-[185px]">
+    <div className="flex justify-end border-b border-slate-800">
+      <span className="px-2 py-1 text-right font-normal sm:w-[185px]">
         {label}
       </span>
-      <span className="px-2 py-1 text-right font-semibold sm:w-[105px]">
+      <span className="px-2 py-1 text-right font-normal sm:w-[120px]">
         {value}
       </span>
     </div>

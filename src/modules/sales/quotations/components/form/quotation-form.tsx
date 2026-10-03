@@ -150,9 +150,14 @@ export function QuotationForm({
 
   useEffect(() => {
     if (mode === "edit" && quotation) {
-      reset(mapQuotationToFormValues(quotation));
+      const mapped = mapQuotationToFormValues(quotation);
+      const sessionBank = getSessionFormDefaults(session);
+      if (!mapped.businessLogo && sessionBank.businessLogo) {
+        mapped.businessLogo = sessionBank.businessLogo;
+      }
+      reset(mapped);
     }
-  }, [mode, quotation, reset]);
+  }, [mode, quotation, reset, session]);
 
   useEffect(() => {
     if (mode !== "create" || !session) return;
