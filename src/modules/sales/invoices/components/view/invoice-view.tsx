@@ -35,7 +35,17 @@ const { data: businessCtx, isLoading: businessLoading } = useBusiness();
   if (invoiceFromQuery) {
     stableInvoice.current = invoiceFromQuery;
   }
-  const invoice = stableInvoice.current;
+  // Same logo source for view page + PDF (from business context)
+  const logoFromBusiness = businessCtx?.business?.logo?.trim() || null;
+  const invoice = stableInvoice.current
+    ? {
+        ...stableInvoice.current,
+        businessLogo:
+          logoFromBusiness ||
+          stableInvoice.current.businessLogo ||
+          null,
+      }
+    : null;
 
   const error = queryError
     ? (queryError as { data?: { message?: string }; message?: string })?.data
@@ -53,10 +63,8 @@ const handleDownload = () => {
   try {
     setPdfBusy(true);
 
-    generateInvoicePdf({
-      ...invoice,
-      businessLogo: businessCtx?.business?.logo?.trim() || null, // ← add logo here
-    });
+    // invoice already includes businessLogo from business context
+    generateInvoicePdf(invoice);
 
     notify.success("PDF downloaded");
   } catch {
@@ -68,10 +76,10 @@ const handleDownload = () => {
 
   if ((isLoading || isFetching) && !invoice) {
     return (
-      <div className="flex min-h-[40vh] w-full items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-          <p className="text-sm text-gray-500">Loading invoice…</p>
+      <div className="flex min-h-[60vh] w-full items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-primary" />
+          <p className="text-sm text-slate-500">Loading invoice…</p>
         </div>
       </div>
     );
@@ -79,14 +87,56 @@ const handleDownload = () => {
 
   if (!invoice) {
     return (
-      <div className="flex min-h-[40vh] w-full flex-col items-center justify-center gap-3 bg-white">
-        <p className="text-sm text-gray-500">Invoice not found</p>
+      <div className="flex min-h-[60vh] w-full flex-col items-center justify-center gap-4 bg-white px-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="h-7 w-7 text-slate-400"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M14 2v6h6M9 15h6M9 11h6"
+            />
+          </svg>
+        </div>
+        <div className="text-center">
+          <h2 className="text-base font-semibold text-slate-800">
+            Invoice not found
+          </h2>
+          <p className="mt-1 max-w-sm text-sm text-slate-500">
+            This invoice may have been deleted or you don’t have access to it.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => router.push("/sales/invoices")}
-          className="text-sm text-primary underline underline-offset-2"
+          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
         >
-          Go back
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-4 w-4"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 12H5M12 19l-7-7 7-7"
+            />
+          </svg>
+          Back to invoices
         </button>
       </div>
     );

@@ -28,39 +28,38 @@ function formatAddress(parts: Array<string | null | undefined>) {
 
 
 
+/** Label bold, value normal — consistent “Invoice No: INV…” style */
 function InfoRow({
   label,
   value,
-  bold = false,
+  align = "left",
 }: {
   label: string;
   value: string;
-  bold?: boolean;
+  align?: "left" | "right";
 }) {
   return (
-    <div className="mx-auto w-full max-w-4xl grid grid-cols-[120px_1fr] gap-x-1 text-[10px] leading-[1.55] sm:grid-cols-[130px_1fr] sm:text-[11px]">
-      <span className="text-slate-700">{label}:</span>
-      <span className={bold ? "font-semibold text-slate-800" : "text-slate-700"}>
-        {value}
-      </span>
+    <div
+      className={`text-[11px] leading-[1.5] sm:text-[12px] ${
+        align === "right" ? "text-right" : ""
+      }`}
+    >
+      <span className="font-semibold text-slate-800">{label}:</span>{" "}
+      <span className="font-normal text-slate-700">{value}</span>
     </div>
   );
 }
 
-function statusChipClass(status: string) {
-  const s = String(status || "").toUpperCase();
-  if (s === "DRAFT") return "border-slate-300 bg-slate-100 text-slate-700";
-  if (s === "ISSUED") return "border-blue-200 bg-blue-50 text-blue-800";
-  if (s === "PAID") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  if (s === "PARTIALLY_PAID") return "border-amber-200 bg-amber-50 text-amber-900";
-  if (s === "OVERDUE") return "border-orange-200 bg-orange-50 text-orange-900";
-  if (s === "CANCELLED") return "border-red-200 bg-red-50 text-red-800";
-  return "border-slate-200 bg-white text-slate-700";
+function FieldLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-[11px] leading-[1.5] text-slate-700 sm:text-[12px]">
+      <span className="font-semibold text-slate-800">{label}:</span>{" "}
+      <span className="font-normal">{value}</span>
+    </div>
+  );
 }
 
 export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
-  const statusLabel = String(invoice.invoiceStatus || "DRAFT").toUpperCase();
-
   const logo = invoice.businessLogo?.trim() || null;
 
   const businessAddress = formatAddress([
@@ -95,15 +94,16 @@ export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
       className="mx-auto w-full min-w-[320px] max-w-full bg-white p-3 shadow-sm sm:p-6 md:p-8"
     >
       <div className="border border-slate-800">
-        {/* Header */}
-        <div className="flex min-h-[80px] flex-wrap items-center justify-between gap-3 px-3 py-4 sm:min-h-[100px] sm:px-6 sm:py-5 md:px-8 md:py-6">
-          <div className="flex h-[56px] min-w-[90px] items-center justify-center sm:h-[72px] sm:min-w-[110px]">
+        {/* Row 1: Logo (left) | meta (right) */}
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 px-3 py-2.5 sm:px-4 sm:py-3">
+          {/* Logo — left */}
+          <div className="flex h-[52px] min-w-[72px] shrink-0 items-center justify-center sm:h-[64px] sm:min-w-[96px]">
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logo}
                 alt={invoice.sellerTradeName || invoice.sellerLegalName || "Logo"}
-                className="max-h-full max-w-[120px] object-contain sm:max-w-[140px]"
+                className="max-h-full max-w-[110px] object-contain sm:max-w-[130px]"
               />
             ) : (
               <div className="text-center text-sm font-semibold text-slate-700">
@@ -112,119 +112,104 @@ export function InvoiceDocument({ invoice }: InvoiceDocumentProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="text-[16px] font-normal text-slate-700 sm:text-[18px] md:text-[20px]">
-              Invoice
-            </span>
-            <span
-              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusChipClass(statusLabel)}`}
-            >
-              {statusLabel}
-            </span>
-          </div>
-        </div>
-
-        {/* Meta + parties */}
-        <div className="grid grid-cols-1 border-t border-slate-800 md:grid-cols-[1fr_1.25fr_1.25fr]">
-          {/* Left meta */}
-          <div className="border-b border-slate-800 p-2 md:border-b-0 md:border-r">
+          {/* Meta — right: label bold, value normal */}
+          <div className="ml-auto min-w-0 space-y-0.5 text-right">
             <InfoRow
               label="Invoice No"
               value={invoice.invoiceNumber || "—"}
-              bold
+              align="right"
             />
             <InfoRow
               label="Invoice Date"
               value={formatDate(invoice.invoiceDate)}
-              bold
+              align="right"
             />
             <InfoRow
               label="Country of Supply"
               value={invoice.billingCountry || "India"}
-              bold
+              align="right"
             />
-            <InfoRow label="Place of Supply" value={placeOfSupply} bold />
+            <InfoRow
+              label="Place of Supply"
+              value={placeOfSupply}
+              align="right"
+            />
+            <InfoRow
+              label="Status"
+              value={String(invoice.invoiceStatus || "DRAFT")
+                .replaceAll("_", " ")
+                .toLowerCase()
+                .replace(/\b\w/g, (c) => c.toUpperCase())}
+              align="right"
+            />
           </div>
+        </div>
 
+        {/* Row 2: Invoice From | Invoice For */}
+        <div className="grid grid-cols-1 border-b border-slate-800 md:grid-cols-2">
           {/* From */}
-          <div className="border-b border-slate-800 p-2 md:border-b-0 md:border-r">
-            <div className="text-[10px] text-slate-700 sm:text-[11px]">
+          <div className="border-b border-slate-800 px-3 py-2.5 md:border-b-0 md:border-r sm:px-4 sm:py-3">
+            <div className="text-[13px] font-bold text-slate-900 sm:text-[14px]">
               Invoice From
             </div>
-            <div className="mt-1 text-[12px] font-bold text-slate-800 sm:text-[13px]">
+            <div className="mt-1 text-[12px] font-semibold text-slate-800 sm:text-[13px]">
               {invoice.sellerLegalName || invoice.sellerTradeName}
             </div>
-            {businessAddress && (
-              <div className="mt-1 max-w-full text-[10px] leading-[1.45] text-slate-700 sm:max-w-[290px] sm:text-[11px]">
+            {businessAddress ? (
+              <div className="mt-0.5 text-[11px] leading-[1.45] text-slate-600 sm:text-[12px]">
                 {businessAddress}
               </div>
-            )}
-            {invoice.sellerGSTIN && (
-              <div className="mt-2 text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">GSTIN:</span>{" "}
-                {invoice.sellerGSTIN}
-              </div>
-            )}
-            {invoice.sellerPAN && (
-              <div className="mt-1 text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">PAN:</span> {invoice.sellerPAN}
-              </div>
-            )}
-            {invoice.sellerEmail && (
-              <div className="mt-1 break-all text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">Email:</span>{" "}
-                {invoice.sellerEmail}
-              </div>
-            )}
-            {invoice.sellerPhone && (
-              <div className="mt-1 text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">Phone:</span>{" "}
-                {invoice.sellerPhone}
-              </div>
-            )}
+            ) : null}
+            <div className="mt-1.5 space-y-0.5">
+              {invoice.sellerGSTIN ? (
+                <FieldLine label="GSTIN" value={invoice.sellerGSTIN} />
+              ) : null}
+              {invoice.sellerPAN ? (
+                <FieldLine label="PAN" value={invoice.sellerPAN} />
+              ) : null}
+              {invoice.sellerEmail ? (
+                <FieldLine label="Email" value={invoice.sellerEmail} />
+              ) : null}
+              {invoice.sellerPhone ? (
+                <FieldLine label="Phone" value={invoice.sellerPhone} />
+              ) : null}
+            </div>
           </div>
 
-          {/* For (prospect) */}
-          <div className="p-2">
-            <div className="text-[10px] text-slate-700 sm:text-[11px]">
+          {/* For */}
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3">
+            <div className="text-[13px] font-bold text-slate-900 sm:text-[14px]">
               Invoice For
             </div>
-            <div className="mt-1 text-[12px] font-bold text-slate-800 sm:text-[13px]">
+            <div className="mt-1 text-[12px] font-semibold text-slate-800 sm:text-[13px]">
               {buyerTitle}
             </div>
-            {invoice.buyerName && invoice.buyerCompanyName && (
-              <div className="mt-0.5 text-[10px] text-slate-600 sm:text-[11px]">
-                Attn: {invoice.buyerName}
+            {invoice.buyerName &&
+            invoice.buyerCompanyName &&
+            invoice.buyerName !== invoice.buyerCompanyName ? (
+              <div className="mt-0.5 text-[11px] text-slate-600 sm:text-[12px]">
+                {invoice.buyerName}
               </div>
-            )}
-            {prospectAddress && (
-              <div className="mt-1 max-w-full text-[10px] leading-[1.45] text-slate-700 sm:max-w-[290px] sm:text-[11px]">
+            ) : null}
+            {prospectAddress ? (
+              <div className="mt-0.5 text-[11px] leading-[1.45] text-slate-600 sm:text-[12px]">
                 {prospectAddress}
               </div>
-            )}
-            {invoice.buyerGSTIN && (
-              <div className="mt-2 text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">GSTIN:</span>{" "}
-                {invoice.buyerGSTIN}
-              </div>
-            )}
-            {invoice.buyerPAN && (
-              <div className="mt-1 text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">PAN:</span> {invoice.buyerPAN}
-              </div>
-            )}
-            {invoice.buyerEmail && (
-              <div className="mt-1 break-all text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">Email:</span>{" "}
-                {invoice.buyerEmail}
-              </div>
-            )}
-            {invoice.buyerPhone && (
-              <div className="mt-1 text-[10px] text-slate-700 sm:text-[11px]">
-                <span className="font-medium">Phone:</span>{" "}
-                {invoice.buyerPhone}
-              </div>
-            )}
+            ) : null}
+            <div className="mt-1.5 space-y-0.5">
+              {invoice.buyerGSTIN ? (
+                <FieldLine label="GSTIN" value={invoice.buyerGSTIN} />
+              ) : null}
+              {invoice.buyerPAN ? (
+                <FieldLine label="PAN" value={invoice.buyerPAN} />
+              ) : null}
+              {invoice.buyerEmail ? (
+                <FieldLine label="Email" value={invoice.buyerEmail} />
+              ) : null}
+              {invoice.buyerPhone ? (
+                <FieldLine label="Phone" value={invoice.buyerPhone} />
+              ) : null}
+            </div>
           </div>
         </div>
 

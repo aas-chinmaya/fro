@@ -82,7 +82,9 @@ export function InvoiceItemsSection({
         }`}
       >
         {!embedded ? (
-          <h3 className="text-sm font-semibold text-slate-800">Product Items</h3>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Product Items
+          </h3>
         ) : null}
         <SalesDiscountToggle
           value={discountTypeGlobal}
@@ -108,7 +110,7 @@ export function InvoiceItemsSection({
           UOM
         </div>
         <div className="text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Price (₹)
+          Unit Price
         </div>
         <div className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500">
           Disc

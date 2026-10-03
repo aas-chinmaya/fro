@@ -419,12 +419,19 @@ reset(mapped);
         noValidate
       >
       {isFinalized && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          This invoice is finalized — editing is disabled.
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="mt-0.5 text-base leading-none">🔒</span>
+          <div>
+            <p className="font-medium">Editing not permitted</p>
+            <p className="mt-0.5 text-amber-800/90">
+              This invoice is finalized. You can view it, but fields cannot be
+              changed.
+            </p>
+          </div>
         </div>
       )}
-      <fieldset disabled={!!isFinalized} className="min-w-0 space-y-6">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <fieldset disabled={!!isFinalized} className="min-w-0 space-y-8">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <SalesSectionCard title="Customer information">
             <InvoiceCustomerFields />
           </SalesSectionCard>
@@ -439,8 +446,7 @@ reset(mapped);
             <InvoiceSummary />
           </div>
         </SalesSectionCard>
-
-        </fieldset>
+      </fieldset>
         <InvoiceFormActions
           mode={mode}
           isSubmitting={isSubmitting}

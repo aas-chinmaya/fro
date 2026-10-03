@@ -94,8 +94,8 @@ export function InvoicePaymentSection() {
         onClick={() => setOpen(true)}
         className="group flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-2.5 text-left transition hover:border-slate-400 hover:bg-slate-50"
       >
-        <Plus className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-primary" />
-        <span className="text-sm font-medium text-slate-700 group-hover:text-primary">
+        <Plus className="h-4 w-4 shrink-0 text-primary" />
+        <span className="text-sm font-medium text-primary">
           Add payment details
         </span>
         <span className="text-xs text-slate-400">(optional)</span>
@@ -106,8 +106,8 @@ export function InvoicePaymentSection() {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
-        <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <CreditCard className="h-4 w-4 text-slate-500" />
+        <span className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <CreditCard className="h-4 w-4 text-primary" />
           Payment information
         </span>
         {!needsPayment ? (

@@ -662,7 +662,7 @@ export function sanitizeCreatePayload(
     paymentDate: toIsoDateTime(rest.paymentDate as string | null) || null,
     transactionId: rest.transactionId || null,
     receivedAccount: rest.receivedAccount || null,
-    businessLogo: sanitizeBusinessLogo(rest.businessLogo),
+    // businessLogo is display-only (view/PDF) — never sent in form payload
     notes: (() => {
       const n = sanitizePlainText(rest.notes, 500);
       return n || null;

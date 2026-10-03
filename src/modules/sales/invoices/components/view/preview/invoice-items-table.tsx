@@ -2,11 +2,12 @@
 
 import type { InvoiceItem, TaxType } from "../../../types/invoice.types";
 
-function formatCurrency(value: number) {
-  return `₹${Number(value || 0).toLocaleString("en-IN", {
+/** Item rows: numbers only (no ₹). Summary alone shows currency icon. */
+function formatAmount(value: number) {
+  return Number(value || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
 }
 
 function num(v: unknown) {
@@ -45,7 +46,7 @@ export function InvoiceItemsTable({
               UOM
             </th>
             <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
-              Price
+              Unit Price
             </th>
             <th className="w-[72px] border-r border-b border-slate-800 px-1 py-1.5 text-right font-semibold text-slate-800">
               Discount
@@ -73,7 +74,12 @@ export function InvoiceItemsTable({
         <tbody>
           {(items || []).map((item, index) => {
             const qty = num(item.quantity);
-            const rate = num(item.rate ?? item.price);
+            // Prefer unitPrice (form key), then price, then rate
+            const rate = num(
+              (item as { unitPrice?: number }).unitPrice ??
+                item.price ??
+                item.rate,
+            );
             const discType = String(item.discountType || "PERCENTAGE").toUpperCase();
             const discVal = num(item.discountValue ?? item.discount);
             const gross = qty * rate;
@@ -125,14 +131,14 @@ export function InvoiceItemsTable({
                   {item.unit || "—"}
                 </td>
                 <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
-                  {formatCurrency(rate)}
+                  {formatAmount(rate)}
                 </td>
                 <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums text-slate-600">
-                  {formatCurrency(discountAmt)}
+                  {formatAmount(discountAmt)}
                 </td>
                 {isInter ? (
                   <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
-                    <div>{formatCurrency(igst)}</div>
+                    <div>{formatAmount(igst)}</div>
                     {taxRate > 0 ? (
                       <div className="text-[9px] text-slate-400">
                         ({taxRate}%)
@@ -142,7 +148,7 @@ export function InvoiceItemsTable({
                 ) : (
                   <>
                     <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
-                      <div>{formatCurrency(cgst)}</div>
+                      <div>{formatAmount(cgst)}</div>
                       {taxRate > 0 ? (
                         <div className="text-[9px] text-slate-400">
                           ({taxRate / 2}%)
@@ -150,7 +156,7 @@ export function InvoiceItemsTable({
                       ) : null}
                     </td>
                     <td className="border-r border-b border-slate-800 px-1 py-1.5 text-right align-top tabular-nums">
-                      <div>{formatCurrency(sgst)}</div>
+                      <div>{formatAmount(sgst)}</div>
                       {taxRate > 0 ? (
                         <div className="text-[9px] text-slate-400">
                           ({taxRate / 2}%)
@@ -160,7 +166,7 @@ export function InvoiceItemsTable({
                   </>
                 )}
                 <td className="border-b border-slate-800 px-1 py-1.5 text-right align-top font-semibold tabular-nums text-slate-900">
-                  {formatCurrency(lineTotal)}
+                  {formatAmount(lineTotal)}
                 </td>
               </tr>
             );

@@ -75,16 +75,6 @@ export function InvoiceFormActions({
     hasItems &&
     hasTerms;
 
-  const hint = !customerOk
-    ? "Complete required customer fields."
-    : !hasInvoiceDate
-      ? "Invoice date is required."
-      : !hasItems
-        ? "Add at least one item."
-        : !hasTerms
-          ? "Terms & conditions are required."
-          : null;
-
   return (
     <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -115,7 +105,7 @@ export function InvoiceFormActions({
           ) : null}
         </div>
 
-        {/* Right: primary actions */}
+        {/* Right: primary actions — create: Draft + Issue | edit: Update + Issue */}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
           {!readOnly ? (
             <>
@@ -127,9 +117,11 @@ export function InvoiceFormActions({
                 className="w-full sm:w-auto"
               >
                 {isSubmitting
-                  ? "Saving…"
+                  ? mode === "create"
+                    ? "Saving…"
+                    : "Updating…"
                   : mode === "create"
-                    ? "Save"
+                    ? "Draft"
                     : "Update"}
               </Button>
               <Button
@@ -138,7 +130,7 @@ export function InvoiceFormActions({
                 onClick={() => onSubmitIntent("ISSUED")}
                 className="w-full sm:w-auto"
               >
-                {isSubmitting ? "Submitting…" : "Issue"}
+                {isSubmitting ? "Issuing…" : "Issue"}
               </Button>
             </>
           ) : (
@@ -148,11 +140,6 @@ export function InvoiceFormActions({
           )}
         </div>
       </div>
-      {!readOnly && hint ? (
-        <p className="mt-2 text-center text-[11px] text-slate-500 sm:text-right">
-          {hint}
-        </p>
-      ) : null}
     </div>
   );
 }

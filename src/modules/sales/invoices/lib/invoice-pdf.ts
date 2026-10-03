@@ -71,13 +71,53 @@ function numberToWords(n: number): string {
   return out + " Only";
 }
 
-function stripHtml(html?: string | null) {
-  return (html || "").replace(/<[^>]+>/g, "").trim();
+/** Convert HTML terms (ul/li/p) into clean numbered lines for PDF. */
+function htmlToTermLines(html?: string | null): string[] {
+  if (!html) return [];
+  let s = String(html).trim();
+  if (!s) return [];
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+  const liMatches = s.match(/<li\b[^>]*>([\s\S]*?)<\/li>/gi);
+  if (liMatches && liMatches.length > 0) {
+    return liMatches
+      .map((li) =>
+        li
+          .replace(/<li\b[^>]*>/i, "")
+          .replace(/<\/li>/i, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim(),
+      )
+      .filter(Boolean);
+  }
+
+  const plain = s
+    .replace(/<\/(p|div|br|li|h[1-6])>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return [];
+  const lines = plain
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.length ? lines : [plain];
 }
 
 function lineNums(item: InvoiceItem, isInter: boolean) {
   const qty = num(item.quantity);
-  const price = num(item.price ?? item.rate);
+  // Prefer unitPrice (form key), then price, then rate
+  const price = num(
+    (item as { unitPrice?: number }).unitPrice ?? item.price ?? item.rate,
+  );
   const discountAmt = num(
     // item.discountAmount ??
       (item.discountType === "PERCENTAGE"
@@ -133,105 +173,80 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   };
 
   drawOuter();
-  let y = m + 7;
+  let y = m + 5;
 
-  // Title
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.setTextColor(BLACK);
-  pdf.text("INVOICE", pageW / 2, y, { align: "center" });
-  y += 4.5;
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(MUTED);
-  pdf.text(
-    `Date: ${formatDate(invoice.invoiceDate)}   ·   FY: ${invoice.financialYear || "—"}`,
-    pageW / 2,
-    y,
-    { align: "center" },
-  );
-  y += 3.5;
-  hLine(y, BLACK, 0.35);
-  y += 0.5;
-
-  // Business logo (optional data-URL or https)
+  // ═══════════════════════════════════════════════════════════
+  // ROW 1: Logo (left) | 5 meta fields as normal text (right)
+  // ROW 2: Invoice From | Invoice For  (2 columns only)
+  // Matches invoice-document.tsx exactly
+  // ═══════════════════════════════════════════════════════════
   const logo = (invoice as { businessLogo?: string | null }).businessLogo?.trim();
-  if (logo && (logo.startsWith("data:image/") || /^https?:\/\//i.test(logo))) {
+  const hasLogo =
+    !!logo &&
+    (logo.startsWith("data:image/") || /^https?:\/\//i.test(logo));
+  const logoSize = 27;
+
+  const placeOfSupply = invoice.placeOfSupply
+    ? `${invoice.placeOfSupply}${invoice.placeOfSupplyCode ? ` (${invoice.placeOfSupplyCode})` : ""}`
+    : "—";
+
+  // Logo (left)
+  if (hasLogo) {
     try {
-      const fmt = logo.includes("png")
+      const fmt = logo!.includes("png")
         ? "PNG"
-        : logo.includes("webp")
+        : logo!.includes("webp")
           ? "WEBP"
           : "JPEG";
-      // Place logo top-left inside border
-      pdf.addImage(logo, fmt as "PNG" | "JPEG" | "WEBP", m + 2, y + 1, 18, 18);
+      pdf.addImage(
+        logo!,
+        fmt as "PNG" | "JPEG" | "WEBP",
+        m + 3,
+        y,
+        logoSize,
+        logoSize,
+      );
     } catch {
-      // ignore invalid logo
+      /* ignore */
+    }
+  } else {
+    const bizName =
+      invoice.sellerTradeName || invoice.sellerLegalName || "";
+    if (bizName) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(BLACK);
+      pdf.text(bizName.slice(0, 24), m + 3, y + 8);
     }
   }
 
-  // Meta — 3 equal columns
-  const metaH = 9;
-  const colW = contentW / 3;
-  pdf.setDrawColor(LINE);
-  pdf.setLineWidth(0.2);
-  pdf.line(m + colW, y, m + colW, y + metaH);
-  pdf.line(m + colW * 2, y, m + colW * 2, y + metaH);
-  hLine(y + metaH, BLACK, 0.3);
-
-  const meta = [
-    { label: "Invoice No.", value: invoice.invoiceNumber || "—" },
+  // Meta details — RIGHT side: bold label + normal value
+  const metaRows = [
+    { label: "Invoice No", value: invoice.invoiceNumber || "—" },
+    { label: "Invoice Date", value: formatDate(invoice.invoiceDate) },
+    { label: "Country of Supply", value: invoice.billingCountry || "India" },
+    { label: "Place of Supply", value: placeOfSupply },
     { label: "Status", value: formatLabel(invoice.invoiceStatus) },
-    {
-      label: "Place of Supply",
-      value: invoice.placeOfSupply
-        ? `${invoice.placeOfSupply}${invoice.placeOfSupplyCode ? ` (${invoice.placeOfSupplyCode})` : ""}`
-        : "—",
-    },
   ];
-  meta.forEach((item, i) => {
-    const x = m + 2.5 + i * colW;
+  let metaY = y + 2.5;
+  const rightX = pageW - m - 3;
+  metaRows.forEach((row) => {
+    const labelPart = `${row.label}: `;
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6);
-    pdf.setTextColor(MUTED);
-    pdf.text(item.label, x, y + 3.2);
+    pdf.setFontSize(7.5);
+    const valW = pdf.getTextWidth(row.value);
+    pdf.setTextColor(BLACK);
+    pdf.text(row.value, rightX, metaY, { align: "right" });
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7.5);
-    pdf.setTextColor(BLACK);
-    pdf.text(pdf.splitTextToSize(String(item.value), colW - 5)[0], x, y + 6.8);
+    pdf.text(labelPart, rightX - valW - 0.5, metaY, { align: "right" });
+    metaY += 3.8;
   });
-  y += metaH;
 
-  // Party sections
-  const section = (
-    title: string,
-    rows: { label: string; value?: string | null }[],
-  ) => {
-    const valid = rows.filter((r) => r.value);
-    if (!valid.length) return;
-    const rowH = 4;
-    const headH = 5;
-    y = ensureSpace(headH + valid.length * rowH + 2, y);
-    hLine(y, BLACK, 0.25);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(7);
-    pdf.setTextColor(BLACK);
-    pdf.text(title.toUpperCase(), m + 2.5, y + 3.5);
-    y += headH;
-    hLine(y, LINE, 0.2);
-    valid.forEach((row) => {
-      y += rowH;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(7);
-      pdf.setTextColor(MUTED);
-      pdf.text(row.label, m + 2.5, y);
-      pdf.setTextColor(BLACK);
-      const lines = pdf.splitTextToSize(String(row.value), contentW - 46);
-      pdf.text(lines[0], m + 38, y);
-    });
-    y += 1.5;
-  };
+  y += Math.max(logoSize + 2, metaRows.length * 3.8 + 2);
+  hLine(y, BLACK, 0.35);
 
+  // ── ROW 2: Invoice From | Invoice For (2 columns only) ──
   const fromAddr = [
     invoice.sellerAddressLine1,
     invoice.sellerAddressLine2,
@@ -242,15 +257,6 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   ]
     .filter(Boolean)
     .join(", ");
-
-  section("Invoice From", [
-    { label: "Business", value: invoice.sellerLegalName || invoice.sellerTradeName },
-    { label: "Address", value: fromAddr || null },
-    { label: "GSTIN", value: invoice.sellerGSTIN },
-    { label: "PAN", value: invoice.sellerPAN },
-    { label: "Phone", value: invoice.sellerPhone },
-    { label: "Email", value: invoice.sellerEmail },
-  ]);
 
   const toAddr = [
     invoice.billingAddressLine1,
@@ -263,21 +269,122 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
     .filter(Boolean)
     .join(", ");
 
-  section("Invoice For", [
-    { label: "Customer", value: invoice.buyerCompanyName || invoice.buyerName },
-    {
-      label: "Contact",
-      value:
-        invoice.buyerCompanyName && invoice.buyerName
-          ? invoice.buyerName
-          : null,
-    },
-    { label: "Address", value: toAddr || null },
-    { label: "GSTIN", value: invoice.buyerGSTIN },
-    { label: "PAN", value: invoice.buyerPAN },
-    { label: "Phone", value: invoice.buyerPhone },
-    { label: "Email", value: invoice.buyerEmail },
-  ]);
+  type ColLine = { label?: string; text: string; bold?: boolean };
+
+  const fromLines: ColLine[] = [];
+  const fromName = invoice.sellerLegalName || invoice.sellerTradeName;
+  if (fromName) fromLines.push({ text: fromName, bold: true });
+  if (fromAddr) fromLines.push({ text: fromAddr });
+  if (invoice.sellerGSTIN)
+    fromLines.push({ label: "GSTIN", text: invoice.sellerGSTIN });
+  if (invoice.sellerPAN)
+    fromLines.push({ label: "PAN", text: invoice.sellerPAN });
+  if (invoice.sellerEmail)
+    fromLines.push({ label: "Email", text: invoice.sellerEmail });
+  if (invoice.sellerPhone)
+    fromLines.push({ label: "Phone", text: invoice.sellerPhone });
+
+  const toLines: ColLine[] = [];
+  const toName = invoice.buyerCompanyName || invoice.buyerName;
+  if (toName) toLines.push({ text: toName, bold: true });
+  if (
+    invoice.buyerName &&
+    invoice.buyerCompanyName &&
+    invoice.buyerName !== invoice.buyerCompanyName
+  ) {
+    toLines.push({ text: invoice.buyerName });
+  }
+  if (toAddr) toLines.push({ text: toAddr });
+  if (invoice.buyerGSTIN)
+    toLines.push({ label: "GSTIN", text: invoice.buyerGSTIN });
+  if (invoice.buyerPAN)
+    toLines.push({ label: "PAN", text: invoice.buyerPAN });
+  if (invoice.buyerEmail)
+    toLines.push({ label: "Email", text: invoice.buyerEmail });
+  if (invoice.buyerPhone)
+    toLines.push({ label: "Phone", text: invoice.buyerPhone });
+
+  const halfW = contentW / 2;
+  const midX = m + halfW;
+  const pad = 3;
+  const lineH = 3.4;
+
+  const measureParty = (lines: ColLine[]) => {
+    let h = 5;
+    pdf.setFontSize(6.5);
+    lines.forEach((ln) => {
+      const full = ln.label ? `${ln.label}: ${ln.text}` : ln.text;
+      const w = pdf.splitTextToSize(full, halfW - pad * 2) as string[];
+      h += w.length * lineH;
+    });
+    return h + 2;
+  };
+
+  const boxH = Math.max(measureParty(fromLines), measureParty(toLines), 24);
+  y = ensureSpace(boxH + 1, y);
+  const boxTop = y;
+
+  // Vertical divider between From | For
+  pdf.setDrawColor(BLACK);
+  pdf.setLineWidth(0.25);
+  pdf.line(midX, boxTop, midX, boxTop + boxH);
+  hLine(boxTop + boxH, BLACK, 0.3);
+
+  const drawPartyCol = (
+    title: string,
+    lines: ColLine[],
+    x0: number,
+  ) => {
+    let cy = boxTop + 4;
+    // Section title — bigger + bold
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(BLACK);
+    pdf.text(title, x0 + pad, cy);
+    cy += 4.5;
+    lines.forEach((ln) => {
+      if (ln.label) {
+        // Label bold, value normal
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(BLACK);
+        const prefix = `${ln.label}: `;
+        pdf.text(prefix, x0 + pad, cy);
+        const lw = pdf.getTextWidth(prefix);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7.5);
+        const rest = pdf.splitTextToSize(
+          ln.text,
+          halfW - pad * 2 - lw,
+        ) as string[];
+        pdf.text(rest[0] || "", x0 + pad + lw, cy);
+        for (let i = 1; i < rest.length; i++) {
+          cy += lineH;
+          pdf.text(rest[i], x0 + pad, cy);
+        }
+      } else {
+        // Name bold; address normal
+        pdf.setFont("helvetica", ln.bold ? "bold" : "normal");
+        pdf.setFontSize(ln.bold ? 8.5 : 7);
+        pdf.setTextColor(ln.bold ? BLACK : MUTED);
+        const wrapped = pdf.splitTextToSize(
+          ln.text,
+          halfW - pad * 2,
+        ) as string[];
+        pdf.text(wrapped[0] || "", x0 + pad, cy);
+        for (let i = 1; i < wrapped.length; i++) {
+          cy += lineH;
+          pdf.text(wrapped[i], x0 + pad, cy);
+        }
+      }
+      cy += lineH + 0.2;
+    });
+  };
+
+  drawPartyCol("Invoice From", fromLines, m);
+  drawPartyCol("Invoice For", toLines, midX);
+
+  y = boxTop + boxH;
 
   // Items table header
   const cols = isInter
@@ -295,7 +402,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   pdf.text("HSN/SAC", cols.hsn, y);
   pdf.text("Qty", cols.qty, y);
   pdf.text("UOM", cols.uom, y);
-  pdf.text("Price", cols.priceR, y, { align: "right" });
+  pdf.text("Unit Price", cols.priceR, y, { align: "right" });
   pdf.text("Discount", cols.discR, y, { align: "right" });
   if (isInter) {
     pdf.text("IGST", cols.t1R, y, { align: "right" });
@@ -430,8 +537,8 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
       String(invoice.currency).toUpperCase(),
     );
   // Small ₹ icon size (mm) — appropriate next to 7.5pt amounts
-  const rupeeW = 2.2;
-  const rupeeH = 2.8;
+  const rupeeW = 1.7;
+  const rupeeH = 2.2;
 
   summaryRows.forEach((row) => {
     y += 4;
@@ -494,26 +601,33 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   y = Math.max(y + wordLines.length * 3.2 + 6, y + 20);
   hLine(y, BLACK, 0.25);
 
-  // Payment details intentionally omitted on PDF (Paid / Pending / Method / Date / Txn)
+  // Payment details intentionally omitted on PDF
 
-  // Terms only — internal notes never printed
-  const terms = stripHtml(invoice.termsAndConditions);
-  if (terms) {
-    y = ensureSpace(14, y);
-    y += 4;
+  // Terms — parse HTML list into numbered lines (same as view page)
+  const termLines = htmlToTermLines(invoice.termsAndConditions);
+  if (termLines.length) {
+    y = ensureSpace(10 + termLines.length * 4, y);
+    y += 3.5;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7);
     pdf.setTextColor(BLACK);
     pdf.text("Terms & Conditions", m + 2.5, y);
-    y += 3.2;
+    y += 3;
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6.5);
+    pdf.setFontSize(6.2);
     pdf.setTextColor(MUTED);
-    const tLines = (pdf.splitTextToSize(terms, contentW - 6) as string[]).slice(
-      0,
-      10,
-    );
-    pdf.text(tLines, m + 2.5, y);
+    const maxW = contentW - 10;
+    termLines.forEach((line, idx) => {
+      const prefix = `${idx + 1}. `;
+      const wrapped = pdf.splitTextToSize(line, maxW - 6) as string[];
+      y = ensureSpace(wrapped.length * 3 + 1, y);
+      pdf.text(prefix + (wrapped[0] || ""), m + 2.5, y);
+      for (let i = 1; i < wrapped.length; i++) {
+        y += 2.8;
+        pdf.text(wrapped[i], m + 7, y);
+      }
+      y += 3.2;
+    });
   }
 
   // Footer
