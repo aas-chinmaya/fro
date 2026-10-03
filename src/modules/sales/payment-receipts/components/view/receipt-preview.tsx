@@ -19,43 +19,51 @@ export default function ReceiptPreview({
   const payment = paymentReceipt.payment;
   const notes = paymentReceipt.notes;
 
-  return (
-    <div className="w-full border-b border-gray-900 bg-white">
-      {/* Title */}
-      <div className="border-b border-gray-900 px-3 py-3 text-center sm:px-5 sm:py-4">
-        <h1 className="text-base font-bold tracking-wide text-gray-900 sm:text-lg">
-          PAYMENT RECEIPT
-        </h1>
-        <p className="mt-1 text-[11px] text-gray-500 sm:text-xs">
-          Date: {formatDate(paymentReceipt.receiptDate)}
-        </p>
-      </div>
+  const logo = paymentReceipt.businessLogo?.trim() || null;
 
-      {/* Meta — 1 col mobile, 3 col desktop */}
-      <div className="grid grid-cols-1 border-b border-gray-900 text-sm sm:grid-cols-3">
-        <div className="border-b border-gray-900 px-3 py-2.5 sm:border-b-0 sm:border-r sm:px-5 sm:py-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-            Receipt No.
-          </p>
-          <p className="mt-0.5 font-semibold text-gray-900">
-            {paymentReceipt.receiptNumber || "—"}
-          </p>
+  return (
+    <div className="w-full border border-slate-800 bg-white">
+      {/* Logo left | meta right — same as invoice/quotation */}
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex h-[52px] min-w-[72px] shrink-0 items-center justify-center sm:h-[64px] sm:min-w-[96px]">
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logo}
+              alt={paymentReceipt.businessName || "Logo"}
+              className="max-h-full max-w-[110px] object-contain sm:max-w-[130px]"
+            />
+          ) : (
+            <div className="text-center text-sm font-semibold text-slate-700">
+              {paymentReceipt.businessName || "PAYMENT RECEIPT"}
+            </div>
+          )}
         </div>
-        <div className="border-b border-gray-900 px-3 py-2.5 sm:border-b-0 sm:border-r sm:px-5 sm:py-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-            Financial Year
-          </p>
-          <p className="mt-0.5 font-semibold text-gray-900">
-            {paymentReceipt.financialYear || "—"}
-          </p>
-        </div>
-        <div className="px-3 py-2.5 sm:px-5 sm:py-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-            Status
-          </p>
-          <p className="mt-0.5 font-semibold text-gray-900">
-            {formatLabel(paymentReceipt.receiptStatus)}
-          </p>
+        <div className="ml-auto min-w-0 space-y-0.5 text-right text-[11px] leading-[1.5] sm:text-[12px]">
+          <div>
+            <span className="font-semibold text-slate-800">Receipt No:</span>{" "}
+            <span className="font-normal text-slate-700">
+              {paymentReceipt.receiptNumber || "—"}
+            </span>
+          </div>
+          <div>
+            <span className="font-semibold text-slate-800">Receipt Date:</span>{" "}
+            <span className="font-normal text-slate-700">
+              {formatDate(paymentReceipt.receiptDate)}
+            </span>
+          </div>
+          <div>
+            <span className="font-semibold text-slate-800">Financial Year:</span>{" "}
+            <span className="font-normal text-slate-700">
+              {paymentReceipt.financialYear || "—"}
+            </span>
+          </div>
+          <div>
+            <span className="font-semibold text-slate-800">Status:</span>{" "}
+            <span className="font-normal text-slate-700">
+              {formatLabel(paymentReceipt.receiptStatus)}
+            </span>
+          </div>
         </div>
       </div>
 

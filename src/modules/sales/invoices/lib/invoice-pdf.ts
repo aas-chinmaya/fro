@@ -1,3 +1,4 @@
+
 import jsPDF from "jspdf";
 import type { Invoice, InvoiceItem } from "../types/invoice.types";
 import { RUPEE_PNG_DATA_URL } from "./rupee-icon";
@@ -125,8 +126,19 @@ function lineNums(item: InvoiceItem, isInter: boolean) {
         : num(item.discount ?? item.discountValue)),
   );
   const taxable = num(item.taxableAmount ?? Math.max(0, qty * price - discountAmt));
-  const taxRate = num(item.taxRate);
-  const totalTax = num( item.taxAmount ?? (taxable * taxRate) / 100);
+  let taxRate = num(item.taxRate);
+  const totalTax = num(item.taxAmount ?? (taxable * taxRate) / 100);
+  // Derive rate when API omits taxRate but amounts exist (so % always shows)
+  if (!taxRate && taxable > 0 && totalTax > 0) {
+    taxRate = Math.round((totalTax / taxable) * 10000) / 100;
+  }
+  if (!taxRate) {
+    taxRate =
+      num((item as { cgstRate?: number }).cgstRate) * 2 ||
+      num((item as { sgstRate?: number }).sgstRate) * 2 ||
+      num((item as { igstRate?: number }).igstRate) ||
+      0;
+  }
   const cgst = num(item.cgstAmount ?? (isInter ? 0 : totalTax / 2));
   const sgst = num(item.sgstAmount ?? (isInter ? 0 : totalTax / 2));
   const igst = num(item.igstAmount ?? (isInter ? totalTax : 0));
@@ -246,7 +258,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   y += Math.max(logoSize + 2, metaRows.length * 3.8 + 2);
   hLine(y, BLACK, 0.35);
 
-  // ── ROW 2: Invoice From | Invoice For (2 columns only) ──
+  // ── ROW 2: Invoice From | Invoice For (2 columns only) — compact height ──
   const fromAddr = [
     invoice.sellerAddressLine1,
     invoice.sellerAddressLine2,
@@ -307,20 +319,21 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   const halfW = contentW / 2;
   const midX = m + halfW;
   const pad = 3;
-  const lineH = 3.4;
+  const lineH = 3.6;
 
   const measureParty = (lines: ColLine[]) => {
-    let h = 5;
+    let h = 6; // title + top pad
     pdf.setFontSize(6.5);
     lines.forEach((ln) => {
       const full = ln.label ? `${ln.label}: ${ln.text}` : ln.text;
       const w = pdf.splitTextToSize(full, halfW - pad * 2) as string[];
       h += w.length * lineH;
     });
-    return h + 2;
+    return h + 4; // bottom pad so text does not touch border
   };
 
-  const boxH = Math.max(measureParty(fromLines), measureParty(toLines), 24);
+  // No large min height — box fits content only
+  const boxH = Math.max(measureParty(fromLines), measureParty(toLines), 18);
   y = ensureSpace(boxH + 1, y);
   const boxTop = y;
 
@@ -335,13 +348,13 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
     lines: ColLine[],
     x0: number,
   ) => {
-    let cy = boxTop + 4;
+    let cy = boxTop + 5;
     // Section title — bigger + bold
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(9);
     pdf.setTextColor(BLACK);
     pdf.text(title, x0 + pad, cy);
-    cy += 4.5;
+    cy += 5;
     lines.forEach((ln) => {
       if (ln.label) {
         // Label bold, value normal
@@ -377,7 +390,7 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
           pdf.text(wrapped[i], x0 + pad, cy);
         }
       }
-      cy += lineH + 0.2;
+      cy += lineH + 0.3;
     });
   };
 
@@ -386,38 +399,80 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
 
   y = boxTop + boxH;
 
-  // Items table header
+
+
+
+
+  // Items table — balanced columns; GST % under tax amounts
+  // Content width ~202mm (m=4). Number cols right-aligned.
   const cols = isInter
-    ? { h: 13, item: 18, hsn: 70, qty: 88, uom: 100, priceR: 120, discR: 138, t1R: 158, totalR: 196 }
-    : { h: 13, item: 18, hsn: 66, qty: 82, uom: 93, priceR: 110, discR: 126, t1R: 146, t2R: 166, totalR: 196 };
+    ? {
+        h: m + 3,
+        item: m + 10,
+        hsn: m + 58,
+        qty: m + 76,
+        uom: m + 88,
+        priceR: m + 112,
+        discR: m + 130,
+        t1R: m + 152,
+        totalR: pageW - m - 3,
+        v: [m + 8, m + 56, m + 74, m + 86, m + 98, m + 118, m + 136, m + 158],
+      }
+    : {
+        h: m + 3,
+        item: m + 10,
+        hsn: m + 54,
+        qty: m + 70,
+        uom: m + 82,
+        priceR: m + 104,
+        discR: m + 120,
+        t1R: m + 140,
+        t2R: m + 160,
+        totalR: pageW - m - 3,
+        v: [m + 8, m + 52, m + 68, m + 80, m + 92, m + 110, m + 126, m + 148, m + 168],
+      };
 
-  y = ensureSpace(11, y);
-  hLine(y, BLACK, 0.3);
-  y += 3.8;
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(BLACK);
-  pdf.text("#", cols.h, y);
-  pdf.text("Item", cols.item, y);
-  pdf.text("HSN/SAC", cols.hsn, y);
-  pdf.text("Qty", cols.qty, y);
-  pdf.text("UOM", cols.uom, y);
-  pdf.text("Unit Price", cols.priceR, y, { align: "right" });
-  pdf.text("Discount", cols.discR, y, { align: "right" });
-  if (isInter) {
-    pdf.text("IGST", cols.t1R, y, { align: "right" });
-  } else {
-    pdf.text("CGST", cols.t1R, y, { align: "right" });
-    pdf.text("SGST", (cols as { t2R: number }).t2R, y, { align: "right" });
-  }
-  pdf.text("Total", cols.totalR, y, { align: "right" });
-  y += 1.5;
-  hLine(y, BLACK, 0.25);
-
-  const items = invoice.items || [];
   const nameW = cols.hsn - cols.item - 2;
 
-  // Columns: # | Item (name+desc) | HSN/SAC | Qty | UOM | Price | Discount | CGST/SGST or IGST | Total
+  const drawVLines = (y0: number, y1: number) => {
+    pdf.setDrawColor(LINE);
+    pdf.setLineWidth(0.12);
+    for (const vx of (cols as { v: number[] }).v) {
+      pdf.line(vx, y0, vx, y1);
+    }
+  };
+
+  const drawItemsHeader = () => {
+    const headTop = y;
+    hLine(y, BLACK, 0.3);
+    y += 3.4;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(BLACK);
+    pdf.text("#", cols.h, y);
+    pdf.text("Item", cols.item, y);
+    pdf.text("HSN/SAC", cols.hsn, y);
+    pdf.text("Qty", cols.qty, y);
+    pdf.text("UOM", cols.uom, y);
+    pdf.text("Unit Price", cols.priceR, y, { align: "right" });
+    pdf.text("Discount", cols.discR, y, { align: "right" });
+    if (isInter) {
+      pdf.text("IGST", cols.t1R, y, { align: "right" });
+    } else {
+      pdf.text("CGST", cols.t1R, y, { align: "right" });
+      pdf.text("SGST", (cols as { t2R: number }).t2R, y, { align: "right" });
+    }
+    pdf.text("Total", cols.totalR, y, { align: "right" });
+    y += 1.6;
+    hLine(y, BLACK, 0.3);
+    drawVLines(headTop, y);
+  };
+
+  y = ensureSpace(11, y);
+  drawItemsHeader();
+
+  const items = invoice.items || [];
+
   items.forEach((item, idx) => {
     const { qty, price, discountAmt, taxRate, cgst, sgst, igst, total } =
       lineNums(item, isInter);
@@ -434,71 +489,96 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
     const descLines = desc
       ? (pdf.splitTextToSize(desc, nameW) as string[]).slice(0, 2)
       : [];
-    const blockH =
-      3.4 + (nameLines.length - 1) * 2.9 + descLines.length * 2.5 + 2.2;
+    const showPct = taxRate > 0;
 
-    y = ensureSpace(blockH + 1, y);
-    y += 3.4;
+    const leftH = 2.8 + nameLines.length * 2.9 + descLines.length * 2.4;
+    const rightH = 2.8 + (showPct ? 2.5 : 0);
+    const rowH = Math.max(leftH, rightH) + 1.6;
+
+    if (y + rowH > bottomLimit) {
+      pdf.addPage();
+      drawOuter();
+      y = m + 6;
+      drawItemsHeader();
+    }
+
+    const rowTop = y;
+    const baseY = rowTop + 2.8;
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
     pdf.setTextColor(BLACK);
-    pdf.text(String(idx + 1), cols.h, y);
+    pdf.text(String(idx + 1), cols.h, baseY);
+
     pdf.setFont("helvetica", "bold");
-    pdf.text(nameLines[0], cols.item, y);
+    pdf.text(nameLines[0] || "—", cols.item, baseY);
+
     pdf.setFont("helvetica", "normal");
-    pdf.text(hsn, cols.hsn, y);
-    pdf.text(String(qty), cols.qty, y);
-    pdf.text(String(item.unit || "—").slice(0, 6), cols.uom, y);
-    pdf.text(price.toFixed(2), cols.priceR, y, { align: "right" });
-    pdf.text(discountAmt.toFixed(2), cols.discR, y, { align: "right" });
+    pdf.text(hsn, cols.hsn, baseY);
+    pdf.text(String(qty), cols.qty, baseY);
+    pdf.text(String(item.unit || "—").slice(0, 6), cols.uom, baseY);
+    pdf.text(price.toFixed(2), cols.priceR, baseY, { align: "right" });
+    pdf.text(discountAmt.toFixed(2), cols.discR, baseY, { align: "right" });
+
     if (isInter) {
-      pdf.text(igst.toFixed(2), cols.t1R, y, { align: "right" });
+      pdf.text(igst.toFixed(2), cols.t1R, baseY, { align: "right" });
     } else {
-      pdf.text(cgst.toFixed(2), cols.t1R, y, { align: "right" });
-      pdf.text(sgst.toFixed(2), (cols as { t2R: number }).t2R, y, {
+      pdf.text(cgst.toFixed(2), cols.t1R, baseY, { align: "right" });
+      pdf.text(sgst.toFixed(2), (cols as { t2R: number }).t2R, baseY, {
         align: "right",
       });
     }
     pdf.setFont("helvetica", "bold");
-    pdf.text(total.toFixed(2), cols.totalR, y, { align: "right" });
+    pdf.text(total.toFixed(2), cols.totalR, baseY, { align: "right" });
     pdf.setFont("helvetica", "normal");
 
-    for (let i = 1; i < nameLines.length; i++) {
-      y += 2.9;
-      pdf.text(nameLines[i], cols.item, y);
-    }
-    if (descLines.length) {
-      pdf.setFontSize(6.2);
-      pdf.setTextColor(MUTED);
-      for (const dl of descLines) {
-        y += 2.5;
-        pdf.text(dl, cols.item, y);
-      }
-      pdf.setTextColor(BLACK);
-      pdf.setFontSize(7);
-    }
-    if (taxRate > 0) {
+    // GST % under tax amount — invoice + quotation same
+    if (showPct) {
+      const pctY = baseY + 2.5;
+      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(5.5);
       pdf.setTextColor(MUTED);
       if (isInter) {
-        pdf.text(`(${taxRate}%)`, cols.t1R, y + 2, { align: "right" });
+        pdf.text(`(${taxRate}%)`, cols.t1R, pctY, { align: "right" });
       } else {
-        pdf.text(`(${taxRate / 2}%)`, cols.t1R, y + 2, { align: "right" });
-        pdf.text(`(${taxRate / 2}%)`, (cols as { t2R: number }).t2R, y + 2, {
+        // CGST/SGST each is half of total GST rate
+        const half =
+          Math.round((taxRate / 2) * 100) / 100;
+        pdf.text(`(${half}%)`, cols.t1R, pctY, { align: "right" });
+        pdf.text(`(${half}%)`, (cols as { t2R: number }).t2R, pctY, {
           align: "right",
         });
       }
       pdf.setTextColor(BLACK);
       pdf.setFontSize(7);
-      y += 1;
     }
 
-    y += 1.5;
+    let leftY = baseY;
+    for (let i = 1; i < nameLines.length; i++) {
+      leftY += 2.9;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+      pdf.setTextColor(BLACK);
+      pdf.text(nameLines[i], cols.item, leftY);
+    }
+    if (descLines.length) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6);
+      pdf.setTextColor(MUTED);
+      for (const dl of descLines) {
+        leftY += 2.4;
+        pdf.text(dl, cols.item, leftY);
+      }
+      pdf.setTextColor(BLACK);
+      pdf.setFontSize(7);
+    }
+
+    y = rowTop + rowH;
     hLine(y, LINE, 0.15);
+    drawVLines(rowTop, y);
   });
 
-  y += 0.5;
+  y += 0.3;
   hLine(y, BLACK, 0.3);
 
   // Compact summary (plain text, currency here)
@@ -508,7 +588,6 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   const sgstAmt = num(invoice.sgstAmount);
   const igstAmt = num(invoice.igstAmount);
   const grand = num(invoice.grandTotal);
-  const currency = invoice.currency || "INR";
 
   const summaryRows: { label: string; value: string; bold?: boolean }[] = [
     { label: "Taxable Amount", value: cur + fmtAmt(taxable) },

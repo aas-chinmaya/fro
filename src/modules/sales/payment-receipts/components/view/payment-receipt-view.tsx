@@ -11,6 +11,7 @@ import type { PaymentReceipt } from "../../types/payment-receipt.types";
 import ReceiptPreview from "./receipt-preview";
 import PaymentAdjustmentDialog from "./payment-adjustment-dialog";
 import { generatePaymentReceiptPdf } from "../../lib/payment-receipt-pdf";
+import { useBusiness } from "@/modules/sales/shared/hooks/use-business";
 
 interface Props {
   id: string;
@@ -29,11 +30,32 @@ export default function PaymentReceiptView({ id }: Props) {
     error: queryError,
   } = useGetPaymentReceiptByIdQuery(id);
 
+  const { data: businessCtx } = useBusiness();
+
   const paymentReceipt = response?.data ?? null;
   if (paymentReceipt) {
     stableReceipt.current = paymentReceipt;
   }
-  const receipt = stableReceipt.current;
+
+  // Same logo source for view page + PDF (from business context) — mirrors invoice
+  const logoFromBusiness = businessCtx?.business?.logo?.trim() || null;
+  const businessName =
+    businessCtx?.business?.name?.trim() ||
+    businessCtx?.business?.legalName?.trim() ||
+    null;
+  const receipt = stableReceipt.current
+    ? {
+        ...stableReceipt.current,
+        businessLogo:
+          logoFromBusiness ||
+          stableReceipt.current.businessLogo ||
+          null,
+        businessName:
+          businessName ||
+          stableReceipt.current.businessName ||
+          null,
+      }
+    : null;
 
   const error = queryError
     ? (queryError as { data?: { message?: string }; message?: string })?.data

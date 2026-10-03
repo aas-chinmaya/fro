@@ -20,8 +20,15 @@ function formatLabel(v?: string | null) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function numberToWords(num: number): string {
-  if (num === 0) return "Zero";
+function fmtAmt(n: number) {
+  return n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function numberToWords(n: number): string {
+  if (n === 0) return "Zero";
   const ones = [
     "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
     "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
@@ -30,140 +37,163 @@ function numberToWords(num: number): string {
   const tens = [
     "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
   ];
-  const convert = (n: number): string => {
-    if (n < 20) return ones[n];
-    if (n < 100)
-      return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
-    if (n < 1000)
-      return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convert(n % 100) : "");
-    if (n < 100000)
-      return convert(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + convert(n % 1000) : "");
-    if (n < 10000000)
-      return convert(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + convert(n % 100000) : "");
-    return convert(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 ? " " + convert(n % 10000000) : "");
+  const convert = (x: number): string => {
+    if (x < 20) return ones[x];
+    if (x < 100)
+      return tens[Math.floor(x / 10)] + (x % 10 ? " " + ones[x % 10] : "");
+    if (x < 1000)
+      return ones[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " + convert(x % 100) : "");
+    if (x < 100000)
+      return convert(Math.floor(x / 1000)) + " Thousand" + (x % 1000 ? " " + convert(x % 1000) : "");
+    if (x < 10000000)
+      return convert(Math.floor(x / 100000)) + " Lakh" + (x % 100000 ? " " + convert(x % 100000) : "");
+    return convert(Math.floor(x / 10000000)) + " Crore" + (x % 10000000 ? " " + convert(x % 10000000) : "");
   };
-  return convert(Math.floor(num));
+  const whole = Math.floor(n);
+  const paise = Math.round((n - whole) * 100);
+  let out = convert(whole) + " Rupees";
+  if (paise > 0) out += " and " + convert(paise) + " Paise";
+  return out + " Only";
 }
 
 /**
- * Clean black-border PDF — white background, tight spacing, no gray fills.
- * Payment receipts only.
+ * Payment receipt PDF — same margin/padding as invoice (m = 4).
+ * Sections are full-width stacked rows (not 2-column). Minimal lines.
  */
 export function buildPaymentReceiptPdf(receipt: PaymentReceipt): jsPDF {
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4",
-  });
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  const pageW = pdf.internal.pageSize.getWidth(); // 210
-  const pageH = pdf.internal.pageSize.getHeight(); // 297
-  const m = 12; // tighter margin
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const m = 4; // same as invoice
   const contentW = pageW - m * 2;
-  const BLACK = 20;
-  const MUTED = 90;
+  const BLACK = 30;
+  const MUTED = 100;
+  const LINE = 190;
+  const bottomLimit = pageH - m - 10;
 
   const amount = Number(receipt.amount ?? 0);
   const customer = receipt.customer;
   const payment = receipt.payment;
 
-  // Outer black border
-  pdf.setDrawColor(BLACK);
-  pdf.setLineWidth(0.6);
-  pdf.rect(m, m, contentW, pageH - m * 2);
+  const drawOuter = () => {
+    pdf.setDrawColor(BLACK);
+    pdf.setLineWidth(0.4);
+    pdf.rect(m, m, contentW, pageH - m * 2);
+  };
 
-  let y = m + 8;
+  const hLine = (yy: number, color = LINE, width = 0.25) => {
+    pdf.setDrawColor(color);
+    pdf.setLineWidth(width);
+    pdf.line(m, yy, pageW - m, yy);
+  };
 
-  // Title
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(13);
-  pdf.setTextColor(BLACK);
-  pdf.text("PAYMENT RECEIPT", pageW / 2, y, { align: "center" });
+  const ensureSpace = (needed: number, yy: number): number => {
+    if (yy + needed <= bottomLimit) return yy;
+    pdf.addPage();
+    drawOuter();
+    return m + 6;
+  };
 
-  y += 5;
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(8);
-  pdf.setTextColor(MUTED);
-  pdf.text(`Date: ${formatDate(receipt.receiptDate)}`, pageW / 2, y, {
-    align: "center",
-  });
+  drawOuter();
+  let y = m + 5;
 
-  // Divider under title
-  y += 4;
-  pdf.setDrawColor(BLACK);
-  pdf.setLineWidth(0.4);
-  pdf.line(m, y, pageW - m, y);
+  // ── Logo left | meta right ──
+  const logo = (receipt.businessLogo || "").trim() || null;
+  const hasLogo =
+    !!logo &&
+    (logo.startsWith("data:image/") || /^https?:\/\//i.test(logo));
+  const logoSize = 27;
 
-  // Meta row — 3 columns
-  const colW = contentW / 3;
-  const metaY = y;
-  const metaH = 11;
+  if (hasLogo) {
+    try {
+      const fmt = logo!.includes("png")
+        ? "PNG"
+        : logo!.includes("webp")
+          ? "WEBP"
+          : "JPEG";
+      pdf.addImage(
+        logo!,
+        fmt as "PNG" | "JPEG" | "WEBP",
+        m + 3,
+        y,
+        logoSize,
+        logoSize,
+      );
+    } catch {
+      /* ignore */
+    }
+  } else {
+    const bizName = (receipt.businessName || "").trim();
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(BLACK);
+    pdf.text((bizName || "PAYMENT RECEIPT").slice(0, 28), m + 3, y + 8);
+  }
 
-  pdf.setLineWidth(0.35);
-  pdf.line(m + colW, metaY, m + colW, metaY + metaH);
-  pdf.line(m + colW * 2, metaY, m + colW * 2, metaY + metaH);
-  pdf.line(m, metaY + metaH, pageW - m, metaY + metaH);
-
-  const metaItems = [
-    { label: "Receipt No.", value: receipt.receiptNumber || "—" },
+  const metaRows = [
+    { label: "Receipt No", value: receipt.receiptNumber || "—" },
+    { label: "Receipt Date", value: formatDate(receipt.receiptDate) },
     { label: "Financial Year", value: receipt.financialYear || "—" },
     { label: "Status", value: formatLabel(receipt.receiptStatus) },
   ];
-
-  metaItems.forEach((item, i) => {
-    const x = m + 3 + i * colW;
+  let metaY = y + 2.5;
+  const rightX = pageW - m - 3;
+  metaRows.forEach((row) => {
+    const labelPart = `${row.label}: `;
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(7);
-    pdf.setTextColor(MUTED);
-    pdf.text(item.label, x, metaY + 4);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(7.5);
+    const valW = pdf.getTextWidth(row.value);
     pdf.setTextColor(BLACK);
-    pdf.text(String(item.value), x, metaY + 8.5);
+    pdf.text(row.value, rightX, metaY, { align: "right" });
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.5);
+    pdf.text(labelPart, rightX - valW - 0.5, metaY, { align: "right" });
+    metaY += 3.8;
   });
 
-  y = metaY + metaH;
+  y += Math.max(hasLogo ? logoSize + 2 : 14, metaRows.length * 3.8 + 2);
+  hLine(y, BLACK, 0.35);
+
+  // ── Full-width stacked sections (one row per field) ──
+  const labelX = m + 3;
+  const valueX = m + 48;
+  const valueMaxW = contentW - 52;
+  const rowH = 4.2;
 
   const drawSection = (
     title: string,
     rows: { label: string; value?: string | null }[],
   ) => {
-    const validRows = rows.filter((r) => r.value);
-    if (!validRows.length) return;
+    const valid = rows.filter((r) => r.value != null && String(r.value).trim());
+    if (!valid.length) return;
 
-    // Section header line only (no gray fill)
-    pdf.setDrawColor(BLACK);
-    pdf.setLineWidth(0.3);
-    pdf.line(m, y, pageW - m, y);
-
+    y = ensureSpace(6 + valid.length * rowH + 2, y);
+    y += 3.5;
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(7.5);
+    pdf.setFontSize(9);
     pdf.setTextColor(BLACK);
-    pdf.text(title.toUpperCase(), m + 3, y + 4.2);
+    pdf.text(title, labelX, y);
+    y += 1.5;
+    hLine(y, BLACK, 0.25);
+    y += 3.2;
 
-    y += 6;
-    pdf.line(m, y, pageW - m, y);
-
-    const rowH = 5.2;
-    validRows.forEach((row, idx) => {
-      const ry = y + 4 + idx * rowH;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(MUTED);
-      pdf.text(row.label, m + 3, ry);
+    valid.forEach((row) => {
+      y = ensureSpace(rowH + 1, y);
       pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7.5);
       pdf.setTextColor(BLACK);
-      // wrap long values
-      const val = String(row.value || "—");
-      const maxW = contentW - 48;
-      const lines = pdf.splitTextToSize(val, maxW);
-      pdf.text(lines[0], m + 42, ry);
+      pdf.text(`${row.label}:`, labelX, y);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5);
+      const lines = pdf.splitTextToSize(String(row.value), valueMaxW) as string[];
+      pdf.text(lines[0] || "", valueX, y);
+      for (let i = 1; i < lines.length; i++) {
+        y += 3.2;
+        pdf.text(lines[i], valueX, y);
+      }
+      y += rowH;
     });
-
-    y += validRows.length * rowH + 2;
-    pdf.setDrawColor(BLACK);
-    pdf.setLineWidth(0.3);
-    pdf.line(m, y, pageW - m, y);
   };
 
   drawSection("Received From", [
@@ -191,77 +221,91 @@ export function buildPaymentReceiptPdf(receipt: PaymentReceipt): jsPDF {
       value: formatLabel(payment?.paymentMethod || "CASH"),
     },
     {
-      label: "Transaction Reference",
+      label: "Txn Ref",
       value: payment?.transactionReference,
     },
-    { label: "Payment No.", value: payment?.paymentNumber },
+    { label: "Payment No", value: payment?.paymentNumber },
     {
       label: "Payment Status",
       value: formatLabel(payment?.paymentStatus),
     },
-    { label: "Document No.", value: payment?.documentNumber },
+    { label: "Document No", value: payment?.documentNumber },
+    {
+      label: "Payment Date",
+      value: payment?.paymentDate ? formatDate(payment.paymentDate) : null,
+    },
   ]);
 
-  // Amount block — black top/bottom lines, no gray fill
-  const amtH = 12;
-  pdf.setDrawColor(BLACK);
-  pdf.setLineWidth(0.4);
-  pdf.line(m, y, pageW - m, y);
-  pdf.line(m, y + amtH, pageW - m, y + amtH);
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(BLACK);
-  pdf.text("AMOUNT RECEIVED (Rs.)", m + 3, y + 4.5);
-
+  // ── Amount ──
+  y = ensureSpace(10, y);
+  hLine(y, BLACK, 0.3);
+  y += 4.5;
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
-  pdf.setTextColor(MUTED);
-  pdf.text(`${numberToWords(amount)} Only`, m + 3, y + 9.5);
-
+  pdf.setTextColor(BLACK);
+  pdf.text("Amount Received", labelX, y);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(11);
-  pdf.setTextColor(BLACK);
-  const amt = amount.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  pdf.text(`Rs. ${amt}`, pageW - m - 3, y + 7.5, { align: "right" });
+  pdf.text(`Rs. ${fmtAmt(amount)}`, pageW - m - 3, y, { align: "right" });
+  y += 3;
+  hLine(y, BLACK, 0.25);
 
-  y += amtH + 10;
-
-  // Signatures
+  // ── Words + signatory ──
+  y = ensureSpace(20, y);
+  y += 4;
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
+  pdf.setFontSize(6.5);
   pdf.setTextColor(MUTED);
-  pdf.text("Received By", m + 3, y);
-  pdf.text("Authorised Signatory", pageW - m - 3, y, { align: "right" });
-
-  y += 10;
+  pdf.text("Total (in words):", labelX, y);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(7);
   pdf.setTextColor(BLACK);
-  pdf.text(receipt.createdBy || "—", m + 3, y);
+  const words = numberToWords(amount);
+  const wordLines = pdf.splitTextToSize(words, contentW * 0.55) as string[];
+  pdf.text(wordLines, labelX, y + 3.5);
 
-  pdf.setDrawColor(BLACK);
-  pdf.setLineWidth(0.35);
-  pdf.line(pageW - m - 42, y, pageW - m - 3, y);
+  pdf.setDrawColor(LINE);
+  pdf.setLineWidth(0.25);
+  pdf.line(pageW - m - 42, y + 12, pageW - m - 3, y + 12);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(MUTED);
+  pdf.text("Authorized Signatory", pageW - m - 3, y + 15.5, {
+    align: "right",
+  });
+
+  y = Math.max(y + wordLines.length * 3.2 + 6, y + 20);
+
+  // Notes
+  const notes = (receipt.notes || receipt.remarks || "").trim();
+  if (notes) {
+    y = ensureSpace(10, y);
+    y += 3;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7);
+    pdf.setTextColor(BLACK);
+    pdf.text("Notes", labelX, y);
+    y += 3;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.2);
+    pdf.setTextColor(MUTED);
+    const noteLines = pdf.splitTextToSize(notes, contentW - 8) as string[];
+    noteLines.forEach((ln) => {
+      y = ensureSpace(3.5, y);
+      pdf.text(ln, labelX, y);
+      y += 3;
+    });
+  }
 
   // Footer
-  const footerY = pageH - m - 4;
-  pdf.setDrawColor(BLACK);
-  pdf.setLineWidth(0.3);
-  pdf.line(m + 2, footerY - 3, pageW - m - 2, footerY - 3);
-
+  const footerY = pageH - m - 3.5;
+  hLine(footerY - 2, LINE, 0.2);
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7);
+  pdf.setFontSize(6);
   pdf.setTextColor(MUTED);
-  pdf.text(
-    "This is a computer-generated money receipt.",
-    pageW / 2,
-    footerY,
-    { align: "center" },
-  );
+  pdf.text("This is a computer-generated payment receipt.", pageW / 2, footerY, {
+    align: "center",
+  });
 
   return pdf;
 }
@@ -282,14 +326,8 @@ export function printPaymentReceiptPdf(receipt: PaymentReceipt) {
   if (!iframe) {
     iframe = document.createElement("iframe");
     iframe.id = iframeId;
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "none";
-    iframe.style.opacity = "0";
-    iframe.style.pointerEvents = "none";
+    iframe.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:none;opacity:0;pointer-events:none";
     document.body.appendChild(iframe);
   }
 
@@ -300,7 +338,7 @@ export function printPaymentReceiptPdf(receipt: PaymentReceipt) {
       iframe?.contentWindow?.focus();
       iframe?.contentWindow?.print();
     } catch {
-      // ignore
+      /* ignore */
     }
     setTimeout(cleanup, 1500);
   };

@@ -102,6 +102,10 @@ export interface PaymentReceipt {
 
   customer?: PaymentReceiptCustomer | null;
   payment?: PaymentReceiptPayment | null;
+
+  /** Injected on view from business context (not always from API) */
+  businessLogo?: string | null;
+  businessName?: string | null;
 }
 
 // ==========================================================
