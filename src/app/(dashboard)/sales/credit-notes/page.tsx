@@ -1,6 +1,5 @@
-// app/sales/analytics/page.tsx
-import SalesAnalyticsDashboard from "@/modules/sales/analytics/components/sales-analytics-dashboard"
+import CreditNoteListPage from "@/modules/sales/credit-notes/components/list/credit-note-list-page";
 
 export default function Page() {
-  return <SalesAnalyticsDashboard />
+  return <CreditNoteListPage />;
 }

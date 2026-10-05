@@ -12,6 +12,18 @@ export const taxTypeSchema = z.enum(["INTRA_STATE", "INTER_STATE"]);
 export const discountTypeSchema = z.enum(["PERCENTAGE", "FIXED"]);
 export const invoiceTypeSchema = z.enum(["B2B", "B2C", "EXPORT", "SEZ"]);
 
+export const tdsEntrySchema = z.object({
+  section: z
+    .string()
+    .min(1, "TDS section is required")
+    .max(20)
+    .transform((v) => String(v).trim().toUpperCase()),
+  rate: z.coerce
+    .number()
+    .min(0, "TDS rate cannot be negative")
+    .max(30, "TDS rate cannot exceed 30%"),
+});
+
 export const LIMITS = {
   NAME: 200,
   COMPANY: 200,
@@ -183,6 +195,9 @@ export const invoiceBaseSchema = z.object({
     .nonnegative()
     .max(LIMITS.MAX_TOTAL)
     .default(0),
+
+  tdsEntries: z.array(tdsEntrySchema).optional().default([]),
+  tdsAmount: z.coerce.number().nonnegative().optional().default(0),
 
   paymentStatus: z
     .enum(["PENDING", "PARTIAL", "PAID", "OVERDUE"])

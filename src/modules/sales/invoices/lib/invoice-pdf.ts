@@ -588,6 +588,23 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   const sgstAmt = num(invoice.sgstAmount);
   const igstAmt = num(invoice.igstAmount);
   const grand = num(invoice.grandTotal);
+  const tdsAmount = num((invoice as { tdsAmount?: number | null }).tdsAmount);
+  const tdsEntries =
+    (
+      invoice as {
+        tdsEntries?: { section?: string; rate?: number }[] | null;
+      }
+    ).tdsEntries || [];
+  const netPayable = Math.max(0, grand - tdsAmount);
+  const tdsLabel =
+    tdsEntries.length > 0
+      ? `TDS (${tdsEntries
+          .map(
+            (e) =>
+              `${String(e.section || "").toUpperCase()} @ ${Number(e.rate) || 0}%`,
+          )
+          .join(", ")})`
+      : "TDS";
 
   const summaryRows: { label: string; value: string; bold?: boolean }[] = [
     { label: "Taxable Amount", value: cur + fmtAmt(taxable) },
@@ -605,6 +622,17 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
     value: cur + fmtAmt(grand),
     bold: false,
   });
+  if (tdsAmount > 0) {
+    summaryRows.push({
+      label: tdsLabel,
+      value: "− " + cur + fmtAmt(tdsAmount),
+    });
+    summaryRows.push({
+      label: "Net Payable",
+      value: cur + fmtAmt(netPayable),
+      bold: true,
+    });
+  }
 
   // Compact right-aligned summary — normal text (Total slightly emphasized)
   y = ensureSpace(summaryRows.length * 4 + 4, y);
@@ -658,11 +686,15 @@ export function buildInvoicePdf(invoice: Invoice): jsPDF {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(6.5);
   pdf.setTextColor(MUTED);
-  pdf.text("Total (in words):", m + 2.5, y);
+  pdf.text(
+    tdsAmount > 0 ? "Net payable (in words):" : "Total (in words):",
+    m + 2.5,
+    y,
+  );
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(7);
   pdf.setTextColor(BLACK);
-  const words = numberToWords(grand);
+  const words = numberToWords(tdsAmount > 0 ? netPayable : grand);
   const wordLines = pdf.splitTextToSize(words, contentW * 0.55) as string[];
   pdf.text(wordLines, m + 2.5, y + 3.5);
 

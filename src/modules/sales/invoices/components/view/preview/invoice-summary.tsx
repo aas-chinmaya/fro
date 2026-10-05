@@ -1,6 +1,6 @@
 "use client";
 
-import type { Invoice, TaxType } from "../../../types/invoice.types";
+import type { Invoice, TaxType, TdsEntry } from "../../../types/invoice.types";
 
 function formatCurrency(value: number) {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -32,6 +32,15 @@ export function InvoiceSummary({ invoice }: InvoiceSummaryProps) {
   const igst = num(invoice.igstAmount);
   const roundOff = num(invoice.roundOffAmount);
   const grandTotal = num(invoice.grandTotal);
+  const tdsAmount = num(invoice.tdsAmount);
+  const tdsEntries: TdsEntry[] = Array.isArray(invoice.tdsEntries)
+    ? invoice.tdsEntries
+    : [];
+  const netPayable = Math.max(0, grandTotal - tdsAmount);
+  const tdsHint =
+    tdsEntries.length > 0
+      ? tdsEntries.map((e) => `${e.section} @ ${e.rate}%`).join(", ")
+      : "";
 
   return (
     <div className="border-t border-slate-800">
@@ -59,6 +68,22 @@ export function InvoiceSummary({ invoice }: InvoiceSummaryProps) {
             {formatCurrency(grandTotal)}
           </span>
         </div>
+        {tdsAmount > 0 && (
+          <>
+            <SummaryRow
+              label={tdsHint ? `TDS (${tdsHint})` : "TDS"}
+              value={`− ${formatCurrency(tdsAmount)}`}
+            />
+            <div className="flex justify-end border-t border-slate-800">
+              <span className="px-2 py-1.5 text-right font-medium sm:w-[185px]">
+                Net Payable
+              </span>
+              <span className="px-2 py-1.5 text-right font-medium sm:w-[120px]">
+                {formatCurrency(netPayable)}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
