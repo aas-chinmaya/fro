@@ -2,8 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui";
-import type { CreditNote } from "../../types/credit-note.types";
-import { reasonLabel } from "../../utils/credit-note.utils";
+import type { CreditNote } from "@/modules/sales/credit-notes/types/credit-note.types";
 import CreditNoteActions from "./credit-note-actions";
 
 function formatDate(value?: string) {
@@ -37,22 +36,6 @@ export const CreditNoteColumns: ColumnDef<CreditNote>[] = [
     accessorKey: "creditNoteDate",
     header: "Date",
     cell: ({ row }) => <span>{formatDate(row.original.creditNoteDate)}</span>,
-  },
-  {
-    accessorKey: "salesInvoiceNumber",
-    header: "Invoice",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {row.original.salesInvoiceNumber || "—"}
-      </span>
-    ),
-  },
-  {
-    accessorKey: "reason",
-    header: "Reason",
-    cell: ({ row }) => (
-      <span className="text-sm">{reasonLabel(row.original.reason)}</span>
-    ),
   },
   {
     accessorKey: "grandTotal",
@@ -100,13 +83,7 @@ export const CreditNoteColumns: ColumnDef<CreditNote>[] = [
       const cn = row.original;
       return (
         <div className="text-right">
-          {cn?.id ? (
-            <CreditNoteActions
-              id={String(cn.id)}
-              creditNoteNumber={cn.creditNoteNumber ?? String(cn.id)}
-              status={cn.status}
-            />
-          ) : null}
+          {cn?.id ? <CreditNoteActions id={String(cn.id)} /> : null}
         </div>
       );
     },

@@ -28,8 +28,13 @@ export interface CreditNoteItemFormValues {
   quantity: number;
   unitPrice: number;
   rate?: number;
+  /** Alias used by shared invoice-style row UI */
+  price?: number;
   discountType: "PERCENTAGE" | "FIXED";
   discountValue: number;
+  /** Alias used by shared invoice-style row UI */
+  discount?: number;
+  stockAvailable?: number | null;
   discountAmount?: number;
   gstRate: number;
   taxRate?: number;
@@ -55,7 +60,8 @@ export interface CreditNoteFormValues {
   customerEmail?: string | null;
   customerGSTIN?: string | null;
 
-  salesInvoiceId?: string | null;
+  /** Always required — every credit note is invoice-linked */
+  salesInvoiceId: string;
   salesInvoiceNumber?: string | null;
 
   placeOfSupply?: string;

@@ -2,7 +2,7 @@
 
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { Resolver } from "react-hook-form";
+import type { FieldErrors, Resolver } from "react-hook-form";
 import { notify } from "@/lib/toast";
 import { SalesSectionCard } from "@/modules/sales/shared/components/ui/sales-table";
 
@@ -22,6 +22,27 @@ import { CreditNoteItemsSection } from "./credit-note-items-section";
 import { CreditNoteSummary } from "./credit-note-summary";
 import { CreditNoteFormActions } from "./credit-note-form-actions";
 
+function firstErrorMessage(errors: FieldErrors<CreditNoteFormValues>): string {
+  if (errors.customerId?.message) return String(errors.customerId.message);
+  if (errors.salesInvoiceId?.message)
+    return String(errors.salesInvoiceId.message);
+  if (errors.remarks?.message) return String(errors.remarks.message);
+  if (errors.items?.message) return String(errors.items.message);
+  if (errors.items && Array.isArray(errors.items)) {
+    for (const row of errors.items) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, { message?: string }>;
+      for (const key of Object.keys(r)) {
+        if (r[key]?.message) return String(r[key].message);
+      }
+    }
+  }
+  if (errors.creditNoteDate?.message)
+    return String(errors.creditNoteDate.message);
+  if (errors.reason?.message) return String(errors.reason.message);
+  return "Please fix the highlighted fields";
+}
+
 export function CreditNoteForm({ onSuccess, onCancel }: CreditNoteFormProps) {
   const [createCreditNote, { isLoading: saving }] =
     useCreateCreditNoteMutation();
@@ -31,7 +52,7 @@ export function CreditNoteForm({ onSuccess, onCancel }: CreditNoteFormProps) {
       createCreditNoteFormSchema,
     ) as unknown as Resolver<CreditNoteFormValues>,
     defaultValues: getDefaultCreditNoteValues(),
-    mode: "onChange",
+    mode: "onSubmit",
   });
 
   const { handleSubmit, getValues } = form;
@@ -41,15 +62,23 @@ export function CreditNoteForm({ onSuccess, onCancel }: CreditNoteFormProps) {
       notify.error("Select a customer");
       return;
     }
-    if (values.reason === "SALES_RETURN" && !values.salesInvoiceId?.trim()) {
-      notify.error("Sales invoice is required for sales return");
+    if (!values.salesInvoiceId?.trim()) {
+      notify.error("Select an invoice");
+      return;
+    }
+    if (values.reason === "OTHER" && !(values.remarks || "").trim()) {
+      notify.error("Remarks are required for Other reason");
       return;
     }
     const filled = (values.items || []).filter(
-      (it) => (it.itemName || "").trim() || it.productId,
+      (it) => (it.itemName || "").trim() || (it.productId || "").trim(),
     );
     if (!filled.length) {
       notify.error("Add at least one item");
+      return;
+    }
+    if (filled.some((it) => !(it.productId || "").trim())) {
+      notify.error("Select an item for each line");
       return;
     }
 
@@ -64,19 +93,25 @@ export function CreditNoteForm({ onSuccess, onCancel }: CreditNoteFormProps) {
     }
   };
 
+  const onInvalid = (errors: FieldErrors<CreditNoteFormValues>) => {
+    notify.error(firstErrorMessage(errors));
+  };
+
   return (
     <FormProvider {...form}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-24">
-        {/* Single card: header + reason-driven fields + items + summary */}
-        <SalesSectionCard title="Credit note">
-          <div className="space-y-6">
-            <CreditNoteHeaderFields />
-            <div className="border-t border-slate-100 pt-4">
-              <CreditNoteItemsSection embedded />
-            </div>
-            <div className="border-t border-slate-100 pt-4">
-              <CreditNoteSummary />
-            </div>
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        className="flex w-full min-w-0 flex-col space-y-6 pb-24"
+        noValidate
+      >
+        <SalesSectionCard title="Credit note details">
+          <CreditNoteHeaderFields />
+        </SalesSectionCard>
+
+        <SalesSectionCard title="Product Items">
+          <CreditNoteItemsSection embedded />
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <CreditNoteSummary />
           </div>
         </SalesSectionCard>
 

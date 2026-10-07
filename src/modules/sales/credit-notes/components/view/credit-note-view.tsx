@@ -1,60 +1,160 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { notify } from "@/lib/toast";
 import {
   useGetCreditNoteByIdQuery,
   useRefundCreditNoteMutation,
   useExchangeCreditNoteMutation,
-} from "../../api/credit-note.api";
+} from "@/modules/sales/credit-notes/api/credit-note.api";
 import type {
+  CreditNote,
   CreditNoteSettlementType,
   PaymentMethod,
-} from "../../types/credit-note.types";
-import {
-  formatINR,
-  reasonLabel,
-} from "../../utils/credit-note.utils";
-import { downloadCreditNotePdf } from "../../lib/credit-note-pdf";
+} from "@/modules/sales/credit-notes/types/credit-note.types";
+import { generateCreditNotePdf } from "@/modules/sales/credit-notes/lib/credit-note-pdf";
+import { useBusiness } from "@/modules/sales/shared/hooks/use-business";
 import { CreditNoteViewHeader } from "./header/credit-note-view-header";
+import { CreditNoteDocument } from "./preview/credit-note-document";
 import { CreditNoteAdjustmentPanel } from "./credit-note-adjustment-panel";
 
 interface CreditNoteViewProps {
   id: string;
 }
 
-export function CreditNoteView({ id }: CreditNoteViewProps) {
-  const { data, isLoading, isError, error, refetch } =
-    useGetCreditNoteByIdQuery(id);
-  const [refundCreditNote] = useRefundCreditNoteMutation();
-  const [exchangeCreditNote] = useExchangeCreditNoteMutation();
+/** Normalize API note: seller often lives on nested salesInvoice; logo from business. */
+function enrichCreditNote(
+  raw: CreditNote,
+  business: {
+    logo?: string | null;
+    legalName?: string | null;
+    name?: string;
+    tradeName?: string | null;
+    gstin?: string | null;
+    pan?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    pincode?: string | null;
+  } | null,
+): CreditNote & { businessLogo?: string | null } {
+  const inv = (raw as { salesInvoice?: Record<string, unknown> }).salesInvoice;
+  const cust = (raw as { customer?: Record<string, unknown> }).customer;
 
+  const pick = (...vals: unknown[]) => {
+    for (const v of vals) {
+      if (v != null && String(v).trim()) return String(v);
+    }
+    return null;
+  };
+
+  return {
+    ...raw,
+    businessLogo: pick(business?.logo) as string | null,
+    sellerLegalName: pick(
+      raw.sellerLegalName,
+      inv?.sellerLegalName,
+      business?.legalName,
+      business?.name,
+    ),
+    sellerTradeName: pick(
+      raw.sellerTradeName,
+      inv?.sellerTradeName,
+      business?.name,
+      business?.tradeName,
+    ),
+    sellerGSTIN: pick(raw.sellerGSTIN, inv?.sellerGSTIN, business?.gstin),
+    sellerPAN: pick(raw.sellerPAN, inv?.sellerPAN, business?.pan),
+    sellerPhone: pick(raw.sellerPhone, inv?.sellerPhone, business?.phone),
+    sellerAddressLine1: pick(
+      raw.sellerAddressLine1,
+      inv?.sellerAddressLine1,
+      business?.addressLine1,
+    ),
+    sellerCity: pick(raw.sellerCity, inv?.sellerCity, business?.city),
+    sellerState: pick(raw.sellerState, inv?.sellerState, business?.state),
+    sellerPincode: pick(
+      raw.sellerPincode,
+      inv?.sellerPincode,
+      business?.pincode,
+    ),
+    customerName: pick(
+      raw.customerName,
+      cust?.name,
+      cust?.companyName,
+      inv?.buyerName,
+    ) as string,
+    customerPhone: pick(
+      raw.customerPhone,
+      cust?.mobile,
+      inv?.buyerPhone,
+    ),
+    customerGSTIN: pick(raw.customerGSTIN, cust?.gstin, inv?.buyerGSTIN),
+    customerEmail: pick(raw.customerEmail, cust?.email, inv?.buyerEmail),
+    billingAddressLine1: pick(
+      raw.billingAddressLine1,
+      inv?.billingAddressLine1,
+    ),
+    billingCity: pick(raw.billingCity, inv?.billingCity),
+    billingState: pick(raw.billingState, inv?.billingState),
+    billingPincode: pick(raw.billingPincode, inv?.billingPincode),
+    placeOfSupply: pick(raw.placeOfSupply, inv?.placeOfSupply),
+    placeOfSupplyCode: pick(raw.placeOfSupplyCode, inv?.placeOfSupplyCode),
+    taxType: (pick(raw.taxType, inv?.taxType) as CreditNote["taxType"]) ||
+      raw.taxType,
+    salesInvoiceNumber: pick(
+      raw.salesInvoiceNumber,
+      inv?.invoiceNumber,
+    ),
+  };
+}
+
+export function CreditNoteView({ id }: CreditNoteViewProps) {
+  const router = useRouter();
+  const stableNote = useRef<CreditNote | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
 
-  const note = data?.data ?? null;
-  const errorMessage =
-    isError
-      ? ((error as { data?: { message?: string }; message?: string })?.data
-          ?.message ||
-          (error as { message?: string })?.message ||
-          "Failed to load")
-      : null;
+  const { data: response, isLoading, isFetching, error: queryError, refetch } =
+    useGetCreditNoteByIdQuery(id, { skip: !id });
+
+  const { data: businessCtx } = useBusiness();
+  const [refundCreditNote] = useRefundCreditNoteMutation();
+  const [exchangeCreditNote] = useExchangeCreditNoteMutation();
+
+  const noteFromQuery = response?.data ?? null;
+  if (noteFromQuery) stableNote.current = noteFromQuery;
+
+  const note = stableNote.current
+    ? enrichCreditNote(stableNote.current, businessCtx?.business ?? null)
+    : null;
+
+  const error = queryError
+    ? (queryError as { data?: { message?: string }; message?: string })?.data
+        ?.message ||
+      (queryError as { message?: string })?.message ||
+      "Failed to fetch credit note"
+    : null;
 
   const handleDownload = () => {
     if (!note) return;
     try {
       setPdfBusy(true);
-      void downloadCreditNotePdf(note);
+      void generateCreditNotePdf(note);
       notify.success("PDF downloaded");
-    } catch {
+    } catch (e) {
+      console.error(e);
       notify.error("Unable to generate PDF");
     } finally {
       setPdfBusy(false);
     }
   };
 
-  if (isLoading && !note) {
+  if ((isLoading || isFetching) && !note) {
     return (
       <div className="flex min-h-[60vh] w-full items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-3">
@@ -68,14 +168,24 @@ export function CreditNoteView({ id }: CreditNoteViewProps) {
   if (!note) {
     return (
       <div className="flex min-h-[60vh] w-full flex-col items-center justify-center gap-4 bg-white px-4">
-        <p className="text-sm text-slate-500">
-          {errorMessage || "Credit note not found"}
+        <h2 className="text-base font-semibold text-slate-800">
+          Credit note not found
+        </h2>
+        <p className="max-w-sm text-center text-sm text-slate-500">
+          {error ||
+            "This credit note may have been deleted or you don't have access."}
         </p>
+        <button
+          type="button"
+          onClick={() => router.push("/sales/credit-notes")}
+          className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          Back to credit notes
+        </button>
       </div>
     );
   }
 
-  const isInter = note.taxType === "INTER_STATE";
   const canAdjust = note.status === "ISSUED";
 
   const onAdjust = async (payload: {
@@ -112,15 +222,13 @@ export function CreditNoteView({ id }: CreditNoteViewProps) {
       void refetch();
     } catch (e) {
       const err = e as { data?: { message?: string }; message?: string };
-      notify.error(
-        err?.data?.message || err?.message || "Settlement failed",
-      );
+      notify.error(err?.data?.message || err?.message || "Settlement failed");
       throw e;
     }
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-col bg-white">
+    <div className="flex w-full flex-col bg-white">
       <CreditNoteViewHeader
         creditNote={note}
         onDownload={handleDownload}
@@ -130,158 +238,18 @@ export function CreditNoteView({ id }: CreditNoteViewProps) {
         onCancelled={() => void refetch()}
       />
 
-      <div className="mx-auto w-full max-w-4xl space-y-6 p-4 md:p-6">
-        <div className="grid gap-4 text-sm sm:grid-cols-2">
-          <div>
-            <p className="text-xs text-muted-foreground">Customer</p>
-            <p className="font-medium text-slate-900">{note.customerName}</p>
-            {note.customerGSTIN ? (
-              <p className="text-xs text-slate-500">
-                GSTIN: {note.customerGSTIN}
-              </p>
-            ) : null}
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Linked invoice</p>
-            <p className="text-slate-800">{note.salesInvoiceNumber || "—"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Reason</p>
-            <p className="text-slate-800">{reasonLabel(note.reason)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Date</p>
-            <p className="text-slate-800">
-              {note.creditNoteDate
-                ? new Date(note.creditNoteDate).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "—"}
-            </p>
-          </div>
-        </div>
+      <main className="w-full">
+        <CreditNoteDocument creditNote={note} />
+      </main>
 
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs text-slate-500">
-              <tr>
-                <th className="px-3 py-2.5 font-medium">Item</th>
-                <th className="px-3 py-2.5 text-right font-medium">Qty</th>
-                <th className="px-3 py-2.5 text-right font-medium">Rate</th>
-                <th className="px-3 py-2.5 text-right font-medium">Taxable</th>
-                <th className="px-3 py-2.5 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(note.items || []).map((it, i) => (
-                <tr
-                  key={it.id || i}
-                  className="border-b border-slate-50 last:border-0"
-                >
-                  <td className="px-3 py-2.5">
-                    <p className="font-medium text-slate-800">{it.itemName}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {it.hsnSacCode || it.itemCode || ""}
-                    </p>
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">
-                    {it.quantity}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">
-                    {formatINR(it.unitPrice)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">
-                    {formatINR(it.taxableAmount || 0)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-medium tabular-nums">
-                    {formatINR(it.lineTotal || 0)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
-          <div className="flex justify-between text-slate-600">
-            <span>Taxable</span>
-            <span className="tabular-nums">
-              ₹{formatINR(note.taxableAmount)}
-            </span>
-          </div>
-          {isInter ? (
-            <div className="flex justify-between text-slate-600">
-              <span>IGST</span>
-              <span className="tabular-nums">
-                ₹{formatINR(note.igstAmount)}
-              </span>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between text-slate-600">
-                <span>CGST</span>
-                <span className="tabular-nums">
-                  ₹{formatINR(note.cgstAmount)}
-                </span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>SGST</span>
-                <span className="tabular-nums">
-                  ₹{formatINR(note.sgstAmount)}
-                </span>
-              </div>
-            </>
-          )}
-          {Number(note.roundOffAmount) !== 0 ? (
-            <div className="flex justify-between text-slate-600">
-              <span>Round off</span>
-              <span className="tabular-nums">
-                ₹{formatINR(note.roundOffAmount)}
-              </span>
-            </div>
-          ) : null}
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold text-slate-900">
-            <span>Grand total</span>
-            <span className="tabular-nums">
-              ₹{formatINR(note.grandTotal)}
-            </span>
-          </div>
-        </div>
-
-        {note.remarks ? (
-          <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
-            <p className="text-xs font-medium text-slate-500">Remarks</p>
-            <p className="mt-1">{note.remarks}</p>
-          </div>
-        ) : null}
-
-        {note.creditNoteSettlement ? (
-          <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-sm">
-            <p className="text-xs font-medium text-emerald-700">Settlement</p>
-            <p className="mt-1 text-slate-800">
-              {(
-                note.creditNoteSettlement.settlementType ||
-                note.creditNoteSettlement.type ||
-                ""
-              ).toString()}{" "}
-              · ₹
-              {formatINR(
-                Number(note.creditNoteSettlement.amount ?? note.grandTotal),
-              )}
-            </p>
-          </div>
-        ) : null}
-
-        {adjustOpen ? (
-          <CreditNoteAdjustmentPanel
-            maxAmount={Number(note.grandTotal) || 0}
-            onSubmit={onAdjust}
-            onClose={() => setAdjustOpen(false)}
-          />
-        ) : null}
-      </div>
+      <CreditNoteAdjustmentPanel
+        open={adjustOpen}
+        onOpenChange={setAdjustOpen}
+        creditNote={note}
+        onSubmit={onAdjust}
+      />
     </div>
   );
 }
+
+export default CreditNoteView;

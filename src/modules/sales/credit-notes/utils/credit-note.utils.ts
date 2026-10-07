@@ -74,6 +74,7 @@ export function emptyLineItem(): CreditNoteItemFormValues {
     unit: "PCS",
     quantity: 1,
     unitPrice: 0,
+    rate: 0,
     discountType: "PERCENTAGE",
     discountValue: 0,
     discountAmount: 0,
@@ -98,7 +99,7 @@ export function getDefaultCreditNoteValues(): CreditNoteFormValues {
     customerName: "",
     customerPhone: null,
     customerGSTIN: null,
-    salesInvoiceId: null,
+    salesInvoiceId: "",
     salesInvoiceNumber: null,
     placeOfSupply: "",
     placeOfSupplyCode: "",
@@ -234,7 +235,7 @@ export function mapCreditNoteToFormValues(cn: CreditNote): CreditNoteFormValues 
     customerName: cn.customerName || "",
     customerPhone: cn.customerPhone || null,
     customerGSTIN: cn.customerGSTIN || null,
-    salesInvoiceId: cn.salesInvoiceId || null,
+    salesInvoiceId: cn.salesInvoiceId || "",
     salesInvoiceNumber: cn.salesInvoiceNumber || null,
     placeOfSupply: cn.placeOfSupply || "",
     placeOfSupplyCode: cn.placeOfSupplyCode || "",
@@ -281,7 +282,7 @@ export function mapCreditNoteToFormValues(cn: CreditNote): CreditNoteFormValues 
 export function toCreatePayload(values: CreditNoteFormValues) {
   const recomputed = applyTotalsToValues(values, undefined);
   const filled = (recomputed.items || []).filter(
-    (it) => (it.itemName || "").trim() || it.productId,
+    (it) => (it.itemName || "").trim() || (it.productId || "").trim(),
   );
 
   const items = filled.map((it, index) => {

@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Ban, FileDown, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  FileDown,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { notify } from "@/lib/toast";
-import { cancelCreditNote } from "../../../api/credit-note.api";
-import type { CreditNote } from "../../../types/credit-note.types";
+import { useCancelCreditNoteMutation } from "@/modules/sales/credit-notes/api/credit-note.api";
+import type { CreditNote } from "@/modules/sales/credit-notes/types/credit-note.types";
 
 function statusChipClass(status: string) {
   const s = status.toUpperCase();
@@ -37,16 +42,24 @@ export function CreditNoteViewHeader({
 }: CreditNoteViewHeaderProps) {
   const router = useRouter();
   const status = String(creditNote.status || "ISSUED").toUpperCase();
+  const isCancelled = status === "CANCELLED";
+  // Cancelled → no PDF, no cancel, no adjust
   const canCancel = status === "ISSUED";
+  const canDownload = !isCancelled;
+  const showAdjust = Boolean(canAdjust) && !isCancelled;
+
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [cancelCreditNote, { isLoading: cancelling }] =
+    useCancelCreditNoteMutation();
   const label = creditNote.creditNoteNumber || creditNote.id;
 
   const handleCancel = async () => {
-    setLoading(true);
     try {
-      await cancelCreditNote(creditNote.id);
-      notify.success("Credit note cancelled successfully");
+      await cancelCreditNote({
+        id: creditNote.id,
+        data: { reason: "Cancelled by user" },
+      }).unwrap();
+      notify.success("Credit note cancelled");
       setOpen(false);
       onCancelled?.();
     } catch (err: unknown) {
@@ -54,8 +67,6 @@ export function CreditNoteViewHeader({
       notify.error(
         e?.data?.message || e?.message || "Failed to cancel credit note",
       );
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -85,17 +96,12 @@ export function CreditNoteViewHeader({
               >
                 {status}
               </span>
-              {creditNote.customerName ? (
-                <span className="hidden truncate text-[11px] text-gray-500 sm:inline">
-                  · {creditNote.customerName}
-                </span>
-              ) : null}
             </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          {canAdjust ? (
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {showAdjust ? (
             <Button
               type="button"
               variant="outline"
@@ -106,52 +112,56 @@ export function CreditNoteViewHeader({
             </Button>
           ) : null}
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={downloadLoading}
-            onClick={onDownload}
-          >
-            {downloadLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <FileDown className="h-3.5 w-3.5" />
-            )}
-            PDF
-          </Button>
+          {canDownload ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={downloadLoading || !onDownload}
+              onClick={onDownload}
+              className="gap-1.5 bg-red-700 text-white hover:bg-red-600"
+              title="Download PDF"
+            >
+              {downloadLoading ? (
+                <Loader2 className="size-3.5 shrink-0 animate-spin" />
+              ) : (
+                <FileDown className="size-3.5 shrink-0" />
+              )}
+              <span className="hidden sm:inline">
+                {downloadLoading ? "Downloading…" : "Download PDF"}
+              </span>
+            </Button>
+          ) : null}
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Cancel credit note"
-            title={
-              canCancel
-                ? "Cancel credit note"
-                : `Cannot cancel when status is ${status}`
-            }
-            disabled={!canCancel}
-            onClick={() => {
-              if (!canCancel) return;
-              setOpen(true);
-            }}
-            className="hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
-          >
-            <Ban className="size-4" />
-          </Button>
+          {canCancel ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              disabled={cancelling}
+              onClick={() => setOpen(true)}
+              title="Cancel credit note"
+            >
+              {cancelling ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <XCircle className="size-3.5" />
+              )}
+              <span className="hidden sm:inline">Cancel</span>
+            </Button>
+          ) : null}
         </div>
       </div>
 
       <ConfirmDialog
         open={open}
-        onOpenChange={setOpen}
-        title="Cancel credit note"
+        title="Cancel credit note?"
         description={`Cancel ${label}? This cannot be undone.`}
         confirmLabel="Cancel note"
-        loading={loading}
+        cancelLabel="Keep"
+        loading={cancelling}
         onConfirm={handleCancel}
+        onCancel={() => setOpen(false)}
       />
     </>
   );

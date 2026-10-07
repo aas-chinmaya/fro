@@ -48,7 +48,7 @@ export function CreditNoteItemsSection({
         quantity: Number(it.quantity) || 0,
         unitPrice,
         rate: unitPrice,
-        discount: Number(it.discountValue ?? it.discountAmount) || 0,
+        discount: Number((it as any).discount ?? it.discountValue ?? it.discountAmount) || 0,
         discountType:
           (it.discountType as "PERCENTAGE" | "FIXED") || "PERCENTAGE",
         taxRate: Number(it.gstRate ?? it.taxRate) || 0,
@@ -79,7 +79,9 @@ export function CreditNoteItemsSection({
         }`}
       >
         {!embedded ? (
-          <h3 className="text-sm font-semibold text-slate-800">Product Items</h3>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Product Items
+          </h3>
         ) : null}
         <SalesDiscountToggle
           value={discountTypeGlobal}
@@ -105,7 +107,7 @@ export function CreditNoteItemsSection({
           UOM
         </div>
         <div className="text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Price (₹)
+          Unit Price
         </div>
         <div className="text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500">
           Disc

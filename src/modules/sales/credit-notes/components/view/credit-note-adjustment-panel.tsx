@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,12 +12,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
+  CreditNote,
   CreditNoteSettlementType,
   PaymentMethod,
-} from "../../types/credit-note.types";
+} from "@/modules/sales/credit-notes/types/credit-note.types";
 
 interface Props {
-  maxAmount: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  creditNote: CreditNote;
   onSubmit: (payload: {
     type: CreditNoteSettlementType;
     settlementDate: string;
@@ -26,14 +29,16 @@ interface Props {
     paymentMethod?: PaymentMethod;
     transactionReference?: string;
   }) => Promise<void>;
-  onClose: () => void;
 }
 
+/** Modal dialog for settlement — not inline page content */
 export function CreditNoteAdjustmentPanel({
-  maxAmount,
+  open,
+  onOpenChange,
+  creditNote,
   onSubmit,
-  onClose,
 }: Props) {
+  const maxAmount = Number(creditNote.grandTotal) || 0;
   const [type, setType] = useState<CreditNoteSettlementType>("REFUND");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [amount, setAmount] = useState(maxAmount);
@@ -42,6 +47,15 @@ export function CreditNoteAdjustmentPanel({
   const [transactionReference, setTransactionReference] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setAmount(maxAmount);
+      setError(null);
+    }
+  }, [open, maxAmount]);
+
+  if (!open) return null;
 
   const submit = async () => {
     setSaving(true);
@@ -58,6 +72,7 @@ export function CreditNoteAdjustmentPanel({
             ? transactionReference
             : undefined,
       });
+      onOpenChange(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -66,107 +81,130 @@ export function CreditNoteAdjustmentPanel({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-800">Settlement</h3>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-slate-600">Type</Label>
-          <Select
-            value={type}
-            onValueChange={(v) => setType(v as CreditNoteSettlementType)}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div
+        className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cn-settle-title"
+      >
+        <div>
+          <h3
+            id="cn-settle-title"
+            className="text-base font-semibold text-slate-900"
           >
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="REFUND">Refund</SelectItem>
-              <SelectItem value="EXCHANGE">Exchange</SelectItem>
-            </SelectContent>
-          </Select>
+            Settlement
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {creditNote.creditNoteNumber} · max ₹
+            {maxAmount.toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </p>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-slate-600">Date</Label>
-          <Input
-            type="date"
-            className="h-9"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-slate-600">Amount</Label>
-          <Input
-            type="number"
-            className="h-9"
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-            min={0}
-            step="0.01"
-          />
-        </div>
-      </div>
 
-      {type === "REFUND" ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label className="text-xs text-slate-600">Payment method</Label>
+            <Label className="text-xs text-slate-600">Type</Label>
             <Select
-              value={paymentMethod}
-              onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              value={type}
+              onValueChange={(v) => setType(v as CreditNoteSettlementType)}
             >
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CASH">Cash</SelectItem>
-                <SelectItem value="UPI">UPI</SelectItem>
-                <SelectItem value="CARD">Card</SelectItem>
-                <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
-                <SelectItem value="CHEQUE">Cheque</SelectItem>
-                <SelectItem value="OTHER">Other</SelectItem>
+                <SelectItem value="REFUND">Refund</SelectItem>
+                <SelectItem value="EXCHANGE">Exchange</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-slate-600">
-              Transaction reference
-            </Label>
+            <Label className="text-xs text-slate-600">Date</Label>
             <Input
+              type="date"
               className="h-9"
-              value={transactionReference}
-              onChange={(e) => setTransactionReference(e.target.value)}
-              placeholder="Optional"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label className="text-xs text-slate-600">Amount</Label>
+            <Input
+              type="number"
+              className="h-9"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              min={0}
+              max={maxAmount}
+              step="0.01"
             />
           </div>
         </div>
-      ) : null}
 
-      <div className="space-y-1">
-        <Label className="text-xs text-slate-600">Remarks</Label>
-        <Input
-          className="h-9"
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          placeholder="Optional notes"
-          maxLength={1000}
-        />
-      </div>
+        {type === "REFUND" ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">Payment method</Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-600">
+                Transaction reference
+              </Label>
+              <Input
+                className="h-9"
+                value={transactionReference}
+                onChange={(e) => setTransactionReference(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+        ) : null}
 
-      {error ? <p className="text-xs text-red-500">{error}</p> : null}
+        <div className="space-y-1">
+          <Label className="text-xs text-slate-600">Remarks</Label>
+          <Input
+            className="h-9"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="Optional"
+            maxLength={1000}
+          />
+        </div>
 
-      <div className="flex justify-end gap-2 pt-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onClose}
-          disabled={saving}
-        >
-          Close
-        </Button>
-        <Button type="button" size="sm" onClick={submit} disabled={saving}>
-          {saving ? "Saving…" : "Confirm settlement"}
-        </Button>
+        {error ? <p className="text-xs text-red-500">{error}</p> : null}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Close
+          </Button>
+          <Button type="button" size="sm" onClick={submit} disabled={saving}>
+            {saving ? "Saving…" : "Confirm settlement"}
+          </Button>
+        </div>
       </div>
     </div>
   );

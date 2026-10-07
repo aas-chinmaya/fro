@@ -50,29 +50,25 @@ export function CreditNoteItemRow({
   const isSearchOpen = searchOpenIndex === index;
 
   const quantity = useWatch({ control, name: `${prefix}.quantity` }) ?? 0;
-  const unitPriceWatch =
-    useWatch({ control, name: `${prefix}.unitPrice` }) ?? 0;
   const rate = useWatch({ control, name: `${prefix}.rate` }) ?? 0;
-  const discountValue = useWatch({ control, name: `${prefix}.discountValue` }) ?? 0;
-  const discount = Number(discountValue) || 0;
+  const price = useWatch({ control, name: `${prefix}.price` });
+  const discount = useWatch({ control, name: `${prefix}.discount` }) ?? 0;
   const discountType =
     useWatch({ control, name: `${prefix}.discountType` }) ?? "PERCENTAGE";
-  const gstRate = useWatch({ control, name: `${prefix}.gstRate` }) ?? 0;
-  const taxRateWatch = useWatch({ control, name: `${prefix}.taxRate` }) ?? 0;
-  const taxRate = Number(gstRate) || Number(taxRateWatch) || 0;
+  const taxRate = useWatch({ control, name: `${prefix}.taxRate` }) ?? 0;
   const itemName = useWatch({ control, name: `${prefix}.itemName` }) ?? "";
   const unit = useWatch({ control, name: `${prefix}.unit` }) ?? "PCS";
   const description =
     useWatch({ control, name: `${prefix}.description` }) ?? "";
   const hsnSacCode = useWatch({ control, name: `${prefix}.hsnSacCode` }) ?? "";
-  const stockAvailable = undefined as number | null | undefined;
+  const stockAvailable = useWatch({
+    control,
+    name: `${prefix}.stockAvailable`,
+  }) as number | null | undefined;
 
   const unitPrice =
-    Number(unitPriceWatch) > 0
-      ? Number(unitPriceWatch)
-      : Number(rate) || 0;
+    price != null && Number(price) > 0 ? Number(price) : Number(rate) || 0;
 
-  /** Quotation: no stock cap — inventory is item-info only */
   const qtyCap = MAX_QTY;
 
   const line = useMemo(
@@ -92,9 +88,9 @@ export function CreditNoteItemRow({
   );
 
   useEffect(() => {
-    setValue(`${prefix}.taxableAmount`, line.taxable, { shouldDirty: false });
-    setValue(`${prefix}.lineTotal`, line.total, { shouldDirty: false });
-    setValue(`${prefix}.discountAmount`, line.discountAmount, { shouldDirty: false });
+    setValue(`${prefix}.amount`, line.taxable, { shouldDirty: false });
+    setValue(`${prefix}.total`, line.total, { shouldDirty: false });
+    setValue(`${prefix}.taxAmount`, line.taxAmount, { shouldDirty: false });
     setValue(`${prefix}.cgstRate`, line.cgstRate, { shouldDirty: false });
     setValue(`${prefix}.cgstAmount`, line.cgstAmount, { shouldDirty: false });
     setValue(`${prefix}.sgstRate`, line.sgstRate, { shouldDirty: false });
@@ -103,18 +99,27 @@ export function CreditNoteItemRow({
     setValue(`${prefix}.igstAmount`, line.igstAmount, { shouldDirty: false });
   }, [line, prefix, setValue]);
 
+  useEffect(() => {
+    if (stockAvailable != null && Number(quantity) > stockAvailable) {
+      setValue(`${prefix}.quantity`, Math.max(0, stockAvailable), {
+        shouldDirty: true,
+      });
+    }
+  }, [stockAvailable, quantity, prefix, setValue]);
+
 
   const clearLine = () => {
     setValue(`${prefix}.itemId`, null, { shouldDirty: true });
     setValue(`${prefix}.itemName`, "", { shouldDirty: true });
-    setValue(`${prefix}.description`, null, { shouldDirty: true });
-    setValue(`${prefix}.hsnSacCode`, null, { shouldDirty: true });
+    setValue(`${prefix}.description`, undefined, { shouldDirty: true });
+    setValue(`${prefix}.hsnSacCode`, undefined, { shouldDirty: true });
     setValue(`${prefix}.rate`, 0, { shouldDirty: true });
     setValue(`${prefix}.price`, 0, { shouldDirty: true });
     setValue(`${prefix}.quantity`, 1, { shouldDirty: true });
     setValue(`${prefix}.unit`, "PCS", { shouldDirty: true });
     setValue(`${prefix}.taxRate`, 18, { shouldDirty: true });
     setValue(`${prefix}.discount`, 0, { shouldDirty: true });
+    setValue(`${prefix}.discountValue`, 0, { shouldDirty: true });
     setValue(`${prefix}.stockAvailable`, null, { shouldDirty: true });
   };
 
@@ -123,31 +128,66 @@ export function CreditNoteItemRow({
       clearLine();
       return;
     }
-    
-    setValue(`${prefix}.itemName`, sanitizePlainText(item.name, 200), {
-      shouldDirty: true,
-    });
+    const anyItem = item as Record<string, unknown>;
+    const name = sanitizePlainText(item.name, 200);
+    const pid = String(item.id || (item as { productId?: string }).productId || "").trim();
+    setValue(`${prefix}.productId`, pid, { shouldDirty: true, shouldValidate: true });
+    setValue(
+      `${prefix}.itemCode`,
+      sanitizePlainText(
+        (item as { code?: string; itemCode?: string }).code ||
+          (item as { itemCode?: string }).itemCode ||
+          "",
+        50,
+      ),
+      { shouldDirty: true },
+    );
+    setValue(`${prefix}.itemName`, name, { shouldDirty: true });
+    setValue(`${prefix}.productName`, name, { shouldDirty: true });
+    setValue(
+      `${prefix}.itemCode`,
+      sanitizePlainText(
+        String(anyItem.itemCode ?? anyItem.sku ?? anyItem.code ?? item.id ?? ""),
+        50,
+      ) || "NA",
+      { shouldDirty: true },
+    );
+    setValue(
+      `${prefix}.classification`,
+      String(anyItem.classification || anyItem.type || "GOODS")
+        .toUpperCase()
+        .includes("SERVICE")
+        ? "SERVICES"
+        : "GOODS",
+      { shouldDirty: true },
+    );
     setValue(
       `${prefix}.description`,
       item.description
-        ? sanitizePlainText(item.description, 500) || null
-        : null,
+        ? sanitizePlainText(item.description, 500) || undefined
+        : undefined,
       { shouldDirty: true },
     );
-    setValue(
-      `${prefix}.hsnSacCode`,
-      (() => {
-        const raw =
-          (item as { hsnSacCode?: string; hsnSac?: string }).hsnSacCode ||
-          (item as { hsnSac?: string }).hsnSac ||
-          "";
-        const cleaned = sanitizePlainText(raw, 12).replace(/[^0-9A-Za-z]/g, "");
-        return cleaned || null;
-      })(),
-      { shouldDirty: true },
-    );
-    setValue(`${prefix}.unitPrice`, item.rate, { shouldDirty: true });
-    setValue(`${prefix}.rate`, item.rate, { shouldDirty: true });
+    const hsnClean = sanitizePlainText(
+      String(
+        anyItem.hsnSacCode ??
+          anyItem.hsnSac ??
+          anyItem.hsn ??
+          anyItem.hsnCode ??
+          anyItem.sac ??
+          anyItem.sacCode ??
+          "",
+      ),
+      12,
+    ).replace(/[^0-9A-Za-z]/g, "");
+    setValue(`${prefix}.hsnSacCode`, hsnClean || "NA", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    const nextRate = Number(item.rate) || 0;
+    setValue(`${prefix}.rate`, nextRate, { shouldDirty: true });
+    setValue(`${prefix}.price`, nextRate, { shouldDirty: true });
+    setValue(`${prefix}.unitPrice`, nextRate, { shouldDirty: true });
     setValue(
       `${prefix}.unit`,
       sanitizePlainText(item.unit || "PCS", 20) || "PCS",
@@ -155,6 +195,8 @@ export function CreditNoteItemRow({
     );
     const tax = Number(item.taxRate) || 18;
     setValue(`${prefix}.taxRate`, tax, { shouldDirty: true });
+    setValue(`${prefix}.gstRate`, tax, { shouldDirty: true });
+    setValue(`${prefix}.gstRate`, tax, { shouldDirty: true });
     if (item.cgstRate != null) {
       setValue(`${prefix}.cgstRate`, Number(item.cgstRate) || 0, {
         shouldDirty: true,
@@ -170,12 +212,16 @@ export function CreditNoteItemRow({
         shouldDirty: true,
       });
     }
-    // Quotation: inventory is product master only — never bind/clamp to stock
-    setValue(`${prefix}.stockAvailable`, null, { shouldDirty: true });
-    const nextQty = Math.max(Number(quantity) || 1, 1);
-    setValue(`${prefix}.quantity`, Math.min(nextQty, MAX_QTY), {
-      shouldDirty: true,
-    });
+    setValue(
+      `${prefix}.stockAvailable`,
+      item.stock != null ? item.stock : null,
+      { shouldDirty: true },
+    );
+    const nextQty = Math.min(
+      Math.max(Number(quantity) || 1, 1),
+      item.stock != null && item.stock >= 0 ? item.stock : MAX_QTY,
+    );
+    setValue(`${prefix}.quantity`, nextQty, { shouldDirty: true });
     onSearchOpenChange(null);
   };
 
@@ -190,13 +236,17 @@ export function CreditNoteItemRow({
       v = Math.min(v, MAX_PRICE);
       setValue(`${prefix}.rate`, v, { shouldDirty: true });
       setValue(`${prefix}.price`, v, { shouldDirty: true });
+      setValue(`${prefix}.unitPrice`, v, { shouldDirty: true });
       return;
     }
     const maxDisc =
       discountType === "PERCENTAGE"
         ? 100
         : Math.min(MAX_PRICE, unitPrice * (Number(quantity) || 0) || MAX_PRICE);
-    setValue(`${prefix}.discount`, Math.min(v, maxDisc), { shouldDirty: true });
+    const d = Math.min(v, maxDisc);
+    // Keep both aliases in sync (form + payload use discountValue)
+    setValue(`${prefix}.discount`, d, { shouldDirty: true });
+    setValue(`${prefix}.discountValue`, d, { shouldDirty: true });
   };
 
   const setSafeText = (
@@ -210,7 +260,7 @@ export function CreditNoteItemRow({
     }
     setValue(
       `${prefix}.${field}`,
-      field === "itemName" ? clean : clean || null,
+      field === "itemName" ? clean : clean || undefined,
       { shouldDirty: true },
     );
   };
@@ -272,7 +322,7 @@ export function CreditNoteItemRow({
             showStock={false}
             onQueryChange={(q) => setSafeText("itemName", q, 200)}
             onOpenChange={(open) => onSearchOpenChange(open ? index : null)}
-            placeholder="Enter product name"
+            placeholder="Search item…"
           />
         </div>
 
@@ -347,7 +397,6 @@ export function CreditNoteItemRow({
 
         {/* Row-2: stock hint under qty, empty fillers, actions at end */}
         <div className="col-start-3" />
-      
         <div />
         <div />
         <div />
@@ -371,7 +420,7 @@ export function CreditNoteItemRow({
             showStock={false}
               onQueryChange={(q) => setSafeText("itemName", q, 200)}
               onOpenChange={(open) => onSearchOpenChange(open ? index : null)}
-              placeholder="Enter product name"
+              placeholder="Search item…"
             />
             <textarea
               rows={2}

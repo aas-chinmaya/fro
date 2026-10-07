@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { CreditNoteFormValues } from "../../types/credit-note-form.types";
-import type { TaxType } from "../../types/credit-note.types";
+import type { CreditNoteReason, TaxType } from "../../types/credit-note.types";
 import {
   applyTotalsToValues,
   formatINR,
@@ -41,14 +41,21 @@ function SumRow({
 }
 
 export function CreditNoteSummary() {
-  const { control, setValue, getValues, register } =
-    useFormContext<CreditNoteFormValues>();
+  const {
+    control,
+    setValue,
+    getValues,
+    register,
+    formState: { errors },
+  } = useFormContext<CreditNoteFormValues>();
   const [roundOffOn, setRoundOffOn] = useState(true);
 
   const taxType = (useWatch({ control, name: "taxType" }) ??
     "INTRA_STATE") as TaxType;
   const isInter = taxType === "INTER_STATE";
   const items = useWatch({ control, name: "items" });
+  const reason = useWatch({ control, name: "reason" }) as CreditNoteReason;
+  const remarksRequired = reason === "OTHER";
 
   useEffect(() => {
     const next = applyTotalsToValues(getValues(), roundOffOn);
@@ -72,13 +79,27 @@ export function CreditNoteSummary() {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
       <div className="space-y-2">
-        <Label className="text-sm text-slate-600">Remarks</Label>
+        <Label className="text-sm text-slate-600">
+          Remarks
+          {remarksRequired ? (
+            <span className="ml-1 text-red-500">*</span>
+          ) : null}
+        </Label>
         <Textarea
           className="min-h-[120px] resize-y text-sm"
           {...register("remarks")}
-          placeholder="Optional remarks…"
+          placeholder={
+            remarksRequired
+              ? "Required for Other reason…"
+              : "Optional remarks…"
+          }
           maxLength={1000}
         />
+        {errors.remarks ? (
+          <p className="text-[11px] text-red-500">
+            {String(errors.remarks.message || "Remarks are required")}
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-2.5 text-sm">
