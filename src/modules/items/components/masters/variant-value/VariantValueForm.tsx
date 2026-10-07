@@ -48,6 +48,7 @@ export default function VariantValueForm({ variantValueId }: VariantValueFormPro
           page: 1,
           limit: 100,
         });
+
         const list = response?.data?.data?.data ?? response?.data?.data ?? [];
         setVariantTypes(list);
       } catch {
@@ -90,7 +91,7 @@ export default function VariantValueForm({ variantValueId }: VariantValueFormPro
       setIsSubmittingAction(true);
 
       const payload = {
-        variantTypeId: Number(data.variantTypeId),
+        variantTypeId: data.variantTypeId,
         value: data.value.trim(),
         shortName: data.shortName.trim(),
         displayOrder: Number(data.displayOrder),

@@ -386,8 +386,8 @@ const {
                     </td>
                   </tr>
                 ) : (
-                  displayedApis.map((api) => (
-                    <ApiTableRow key={api.id ?? api.name} api={api} onEdit={handleEditApi} onDelete={handleDeleteApi} />
+                  displayedApis.map((api,index) => (
+                    <ApiTableRow key={api.id ?? `${api.name}-${index}`} api={api} onEdit={handleEditApi} onDelete={handleDeleteApi} />
                   ))
                 )}
               </tbody>

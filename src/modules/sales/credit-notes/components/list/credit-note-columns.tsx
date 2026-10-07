@@ -1,98 +1,116 @@
 "use client";
 
-import Link from "next/link";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Badge } from "@/components/ui";
 import type { CreditNote } from "../../types/credit-note.types";
-import {
-  formatINR,
-  reasonLabel,
-  statusLabel,
-} from "../../utils/credit-note.utils";
-import { CreditNoteActions } from "./credit-note-actions";
+import { reasonLabel } from "../../utils/credit-note.utils";
+import CreditNoteActions from "./credit-note-actions";
 
-function statusClass(status: string) {
-  switch (status) {
-    case "ISSUED":
-      return "bg-blue-50 text-blue-700";
-    case "REFUNDED":
-    case "EXCHANGED":
-    case "ADJUSTED":
-      return "bg-emerald-50 text-emerald-700";
-    case "CANCELLED":
-      return "bg-slate-100 text-slate-500";
-    default:
-      return "bg-slate-50 text-slate-600";
-  }
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
-export function creditNoteColumns(onRefresh?: () => void) {
-  return [
-    {
-      key: "number",
-      header: "Credit note",
-      cell: (row: CreditNote) => (
-        <Link
-          href={`/sales/credit-notes/${row.id}`}
-          className="font-medium text-slate-900 hover:underline"
-        >
-          {row.creditNoteNumber || "—"}
-        </Link>
-      ),
+export const CreditNoteColumns: ColumnDef<CreditNote>[] = [
+  {
+    accessorKey: "creditNoteNumber",
+    header: "Credit note",
+    cell: ({ row }) => {
+      const cn = row.original;
+      return (
+        <div className="min-w-[180px]">
+          <p className="font-medium">{cn.creditNoteNumber ?? cn.id}</p>
+          <p className="text-xs text-muted-foreground">
+            {cn.customerName ?? "No customer"}
+          </p>
+        </div>
+      );
     },
-    {
-      key: "date",
-      header: "Date",
-      cell: (row: CreditNote) =>
-        row.creditNoteDate
-          ? new Date(row.creditNoteDate).toLocaleDateString("en-IN")
-          : "—",
+  },
+  {
+    accessorKey: "creditNoteDate",
+    header: "Date",
+    cell: ({ row }) => <span>{formatDate(row.original.creditNoteDate)}</span>,
+  },
+  {
+    accessorKey: "salesInvoiceNumber",
+    header: "Invoice",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {row.original.salesInvoiceNumber || "—"}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "reason",
+    header: "Reason",
+    cell: ({ row }) => (
+      <span className="text-sm">{reasonLabel(row.original.reason)}</span>
+    ),
+  },
+  {
+    accessorKey: "grandTotal",
+    header: "Total",
+    cell: ({ row }) => {
+      const amount = Number(row.original.grandTotal ?? 0);
+      return (
+        <p className="font-medium">
+          ₹
+          {amount.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </p>
+      );
     },
-    {
-      key: "customer",
-      header: "Customer",
-      cell: (row: CreditNote) => (
-        <div>
-          <div className="text-sm text-slate-800">{row.customerName}</div>
-          {row.salesInvoiceNumber ? (
-            <div className="text-[11px] text-slate-400">
-              Inv: {row.salesInvoiceNumber}
-            </div>
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = (row.original.status ?? "").toUpperCase();
+      const className =
+        status === "ISSUED"
+          ? "border-blue-200 bg-blue-50 text-blue-800"
+          : status === "REFUNDED" ||
+              status === "EXCHANGED" ||
+              status === "ADJUSTED"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+            : status === "CANCELLED"
+              ? "border-red-200 bg-red-50 text-red-800"
+              : "border-slate-200 bg-white text-slate-700";
+
+      return (
+        <Badge variant="outline" className={className}>
+          {status || "—"}
+        </Badge>
+      );
+    },
+  },
+  {
+    id: "actions",
+    header: () => <div className="text-right">Actions</div>,
+    cell: ({ row }) => {
+      const cn = row.original;
+      return (
+        <div className="text-right">
+          {cn?.id ? (
+            <CreditNoteActions
+              id={String(cn.id)}
+              creditNoteNumber={cn.creditNoteNumber ?? String(cn.id)}
+              status={cn.status}
+            />
           ) : null}
         </div>
-      ),
+      );
     },
-    {
-      key: "reason",
-      header: "Reason",
-      cell: (row: CreditNote) => (
-        <span className="text-sm text-slate-600">{reasonLabel(row.reason)}</span>
-      ),
-    },
-    {
-      key: "status",
-      header: "Status",
-      cell: (row: CreditNote) => (
-        <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass(row.status)}`}
-        >
-          {statusLabel(row.status)}
-        </span>
-      ),
-    },
-    {
-      key: "amount",
-      header: "Amount",
-      cell: (row: CreditNote) => (
-        <span className="tabular-nums text-sm text-slate-800">
-          ₹{formatINR(row.grandTotal)}
-        </span>
-      ),
-    },
-    {
-      key: "actions",
-      header: "",
-      cell: (row: CreditNote) => (
-        <CreditNoteActions creditNote={row} onDone={onRefresh} />
-      ),
-    },
-  ];
-}
+    enableSorting: false,
+    enableHiding: false,
+  },
+];

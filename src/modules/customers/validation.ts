@@ -24,10 +24,6 @@ const customerAddressSchema = z.object({
 
 // Main customer validation schema
 export const customerSchema = z.object({
-  // Business Information
-  businessId: z.string().min(1, "Business ID is required"),
-  branchId: z.string().min(1, "Branch ID is required"),
-
   // Basic Information
   customerCode: z.string().optional(),
   customerType: z.enum(["WALK_IN", "REGULAR", "WHOLESALE"]),

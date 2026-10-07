@@ -15,6 +15,41 @@ import {
    BUSINESS CARD MODEL
 ========================================================= */
 
+type BranchPersonLike = {
+  fullName?: string | null;
+  name?: string | null;
+};
+
+const resolveBranchManagerName = (branch: Record<string, unknown> | undefined) => {
+  if (!branch) return "";
+
+  const branchData = branch as Record<string, unknown>;
+  const users = Array.isArray(branchData.users)
+    ? (branchData.users as BranchPersonLike[])
+    : [];
+  const manager = branchData.manager as BranchPersonLike | undefined;
+  const user = branchData.user as BranchPersonLike | undefined;
+
+  const candidateValues = [
+    branchData.branchManager,
+    branchData.managerName,
+    manager?.fullName,
+    manager?.name,
+    user?.fullName,
+    user?.name,
+    users[0]?.fullName,
+    users[0]?.name,
+    branchData.userFullName,
+    branchData.branchManagerName,
+  ];
+
+  for (const value of candidateValues) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  return "";
+};
+
 export const toBusinessCardModel = (
   item: BusinessApiRecord
 ): Business => ({
@@ -61,10 +96,7 @@ export const toBusinessCardModel = (
     country: branch.country || "",
     phone: branch.phone || "",
     email: branch.email || "",
-    branchManager:
-      branch.branchManager ||
-      branch.user?.name ||
-      "",
+    branchManager: resolveBranchManagerName(branch as Record<string, unknown>),
     status:
       branch.status === "ACTIVE"
         ? "Active"
@@ -263,16 +295,16 @@ interface BusinessState {
   selectedBusiness: Business | null;
 
   status:
-    | "idle"
-    | "loading"
-    | "succeeded"
-    | "failed";
+  | "idle"
+  | "loading"
+  | "succeeded"
+  | "failed";
 
   mutationStatus:
-    | "idle"
-    | "loading"
-    | "succeeded"
-    | "failed";
+  | "idle"
+  | "loading"
+  | "succeeded"
+  | "failed";
 
   error: string | null;
 }
@@ -424,7 +456,7 @@ const businessSlice = createSlice({
             "/pending"
           ) &&
           action.type !==
-            fetchBusinesses.pending.type,
+          fetchBusinesses.pending.type,
 
         (state) => {
           state.mutationStatus = "loading";
@@ -441,7 +473,7 @@ const businessSlice = createSlice({
             "/fulfilled"
           ) &&
           action.type !==
-            fetchBusinesses.fulfilled.type,
+          fetchBusinesses.fulfilled.type,
 
         (state) => {
           state.mutationStatus =
@@ -458,7 +490,7 @@ const businessSlice = createSlice({
             "/rejected"
           ) &&
           action.type !==
-            fetchBusinesses.rejected.type,
+          fetchBusinesses.rejected.type,
 
         (
           state,

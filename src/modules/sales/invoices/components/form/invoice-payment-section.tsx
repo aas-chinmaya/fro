@@ -104,10 +104,10 @@ export function InvoicePaymentSection() {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <CreditCard className="h-4 w-4 text-slate-600" />
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <CreditCard className="h-4 w-4 text-primary" />
           Payment information
         </span>
         {!needsPayment ? (
@@ -122,7 +122,7 @@ export function InvoicePaymentSection() {
         ) : null}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 px-4 py-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="text-xs text-slate-600">Payment status</Label>

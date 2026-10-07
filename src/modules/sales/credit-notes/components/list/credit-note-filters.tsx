@@ -1,6 +1,5 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -8,64 +7,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CreditNoteListParams } from "../../types/credit-note.types";
-import { REASON_OPTIONS, STATUS_OPTIONS } from "../../utils/credit-note.utils";
 
-interface Props {
-  params: CreditNoteListParams;
-  onChange: (next: Partial<CreditNoteListParams>) => void;
-}
+type CreditNoteFiltersProps = {
+  value: string;
+  onChange: (value: string) => void;
+  period?: string;
+  onPeriodChange?: (value: string) => void;
+};
 
-export function CreditNoteFilters({ params, onChange }: Props) {
+export default function CreditNoteFilters({
+  value,
+  onChange,
+  period = "all",
+  onPeriodChange,
+}: CreditNoteFiltersProps) {
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-[200px] flex-1 space-y-1">
-        <Input
-          className="h-9"
-          placeholder="Search number, customer, invoice…"
-          defaultValue={params.search || ""}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              onChange({ search: (e.target as HTMLInputElement).value.trim() });
-            }
-          }}
-          onBlur={(e) => onChange({ search: e.target.value.trim() })}
-        />
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
       <Select
-        value={params.status || "all"}
-        onValueChange={(v) =>
-          onChange({ status: v === "all" ? undefined : (v as CreditNoteListParams["status"]) })
-        }
+        value={value || "all"}
+        onValueChange={(next) => onChange(next === "all" ? "" : next)}
       >
-        <SelectTrigger className="h-9 w-[150px]">
-          <SelectValue placeholder="Status" />
+        <SelectTrigger className="w-44">
+          <SelectValue placeholder="All statuses" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All statuses</SelectItem>
-          {STATUS_OPTIONS.map((s) => (
-            <SelectItem key={s.value} value={s.value}>
-              {s.label}
-            </SelectItem>
-          ))}
+          <SelectItem value="ISSUED">Issued</SelectItem>
+          <SelectItem value="REFUNDED">Refunded</SelectItem>
+          <SelectItem value="EXCHANGED">Exchanged</SelectItem>
+          <SelectItem value="ADJUSTED">Adjusted</SelectItem>
+          <SelectItem value="CANCELLED">Cancelled</SelectItem>
         </SelectContent>
       </Select>
+
       <Select
-        value={params.reason || "all"}
-        onValueChange={(v) =>
-          onChange({ reason: v === "all" ? undefined : (v as CreditNoteListParams["reason"]) })
-        }
+        value={period || "all"}
+        onValueChange={(next) => onPeriodChange?.(next)}
       >
-        <SelectTrigger className="h-9 w-[180px]">
-          <SelectValue placeholder="Reason" />
+        <SelectTrigger className="w-44">
+          <SelectValue placeholder="All time" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All reasons</SelectItem>
-          {REASON_OPTIONS.map((r) => (
-            <SelectItem key={r.value} value={r.value}>
-              {r.label}
-            </SelectItem>
-          ))}
+          <SelectItem value="all">All time</SelectItem>
+          <SelectItem value="today">Today</SelectItem>
+          <SelectItem value="7d">Last 7 days</SelectItem>
+          <SelectItem value="30d">Last 30 days</SelectItem>
+          <SelectItem value="month">This month</SelectItem>
+          <SelectItem value="year">This year</SelectItem>
         </SelectContent>
       </Select>
     </div>

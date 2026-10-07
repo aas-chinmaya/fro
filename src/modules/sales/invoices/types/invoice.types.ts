@@ -19,12 +19,6 @@ export type DiscountType = "PERCENTAGE" | "FIXED";
 /** INTRA_STATE → CGST+SGST | INTER_STATE → IGST */
 export type TaxType = "INTRA_STATE" | "INTER_STATE";
 
-/** One TDS section + rate (taxable base, ex-GST). */
-export interface TdsEntry {
-  section: string;
-  rate: number;
-}
-
 export interface InvoiceCustomer {
   id: string;
   name: string;
@@ -141,11 +135,6 @@ export interface Invoice {
   roundOffAmount: number;
   grandTotal: number;
 
-  /** TDS rules applied on this invoice. */
-  tdsEntries?: TdsEntry[] | null;
-  /** Computed TDS amount (sum of taxable × rate for each entry). */
-  tdsAmount?: number | null;
-
   paymentStatus?: PaymentStatus | null;
   paymentMethod?: string | null;
   paidAmount?: number | null;
@@ -252,9 +241,6 @@ export interface InvoiceCreatePayload {
   cessAmount?: number;
   roundOffAmount?: number;
   grandTotal?: number;
-
-  tdsEntries?: TdsEntry[] | null;
-  tdsAmount?: number | null;
 
   paymentStatus?: PaymentStatus | null;
   paymentMethod?: string | null;

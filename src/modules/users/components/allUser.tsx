@@ -119,7 +119,10 @@ export default function AllUserPage() {
    * ================================================== */
 
   useEffect(() => {
-  }, [users]);
+    if (error) {
+      notify.error(error);
+    }
+  }, [error]);
 
   /* ==================================================
    * CREATE USER
@@ -152,10 +155,15 @@ export default function AllUserPage() {
         })
       ).unwrap();
     } catch (error) {
+      const message =
+        typeof error === "string"
+          ? error
+          : (error as { response?: { data?: { message?: string } }; message?: string })
+              ?.response?.data?.message ||
+              (error as { message?: string })?.message ||
+              "Could not create user";
 
-      notify.error(
-        "Could not create user"
-      );
+      notify.error(message);
     }
   };
 
@@ -198,10 +206,15 @@ export default function AllUserPage() {
         })
       ).unwrap();
     } catch (error) {
+      const message =
+        typeof error === "string"
+          ? error
+          : (error as { response?: { data?: { message?: string } }; message?: string })
+              ?.response?.data?.message ||
+              (error as { message?: string })?.message ||
+              "Could not update user";
 
-      notify.error(
-        "Could not update user"
-      );
+      notify.error(message);
     }
   };
 
@@ -234,10 +247,15 @@ export default function AllUserPage() {
           })
         ).unwrap();
       } catch (error) {
+        const message =
+          typeof error === "string"
+            ? error
+            : (error as { response?: { data?: { message?: string } }; message?: string })
+                ?.response?.data?.message ||
+              (error as { message?: string })?.message ||
+              "Could not delete user";
 
-        notify.error(
-          "Could not delete user"
-        );
+        notify.error(message);
       }
     },
     [
@@ -488,16 +506,6 @@ export default function AllUserPage() {
             }}
           />
         </TableToolbar>
-
-        {/* ------------------------------------------
-         * ERROR
-         * ------------------------------------------ */}
-
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
 
         {/* ------------------------------------------
          * DATA TABLE

@@ -1,5 +1,7 @@
-import { customerApi } from "../api/sustomers.api";
+import { customerApi } from "../api/customers.api";
+import { CustomerRewardConfig } from "../types";
 import { CustomerFormData } from "../validation";
+import { businessService } from "../../business/services/business.service";
 
 export const customersService = {
   /**
@@ -54,7 +56,7 @@ export const customersService = {
     }
   },
 
-    /**
+  /**
    * Fetch complete customer ledger
    */
   async getCustomerLedger(id: string) {
@@ -79,7 +81,7 @@ export const customersService = {
       throw error;
     }
   },
-  
+
   /**
    * Fetch complete customer purchase history
    */
@@ -89,6 +91,121 @@ export const customersService = {
       return response.data || response;
     } catch (error) {
       console.error("Error fetching customer purchase history:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch all reward configs by reading the business-user API payload,
+   * then walking each business and nested branch to call the exact route
+   * GET /rewards/config/:businessId/:branchId.
+   */
+  async getRewardConfigs() {
+    try {
+      const data = await businessService.getBusinesses();
+      const businesses = Array.isArray(data)
+        ? data
+        : Array.isArray((data as Record<string, unknown>)?.data)
+          ? ((data as Record<string, unknown>)?.data as Array<Record<string, unknown>>)
+          : [];
+      const configs: CustomerRewardConfig[] = [];
+
+      for (const business of businesses) {
+        const businessId = String((business as Record<string, unknown>)?.id ?? (business as Record<string, unknown>)?.businessId ?? "");
+        const branches = Array.isArray((business as Record<string, unknown>)?.branches)
+          ? ((business as Record<string, unknown>)?.branches as Array<Record<string, unknown>>)
+          : [];
+
+        if (!businessId) {
+          continue;
+        }
+
+        if (branches.length === 0) {
+          try {
+            const response = await customerApi.getRewardConfig(businessId, "branch-1");
+            const payload = response?.data?.data ?? response?.data ?? response;
+            if (payload) {
+              configs.push(payload);
+            }
+          } catch (error) {
+            console.warn(`Reward config missing for ${businessId}/branch-1`, error);
+          }
+          continue;
+        }
+
+        for (const branch of branches) {
+          const branchId = String((branch as Record<string, unknown>)?.id ?? (branch as Record<string, unknown>)?.branchId ?? "");
+          if (!branchId) {
+            continue;
+          }
+
+          try {
+            const response = await customerApi.getRewardConfig(businessId, branchId);
+            const payload = response?.data?.data ?? response?.data ?? response;
+            if (payload) {
+              configs.push(payload);
+            }
+          } catch (error) {
+            console.warn(`Reward config missing for ${businessId}/${branchId}`, error);
+          }
+        }
+      }
+
+      return configs;
+    } catch (error) {
+      console.error("Error fetching reward configs:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Reward config fetch by business and branch
+   */
+  async getRewardConfig(businessId: string, branchId: string) {
+    try {
+      const response = await customerApi.getRewardConfig(businessId, branchId);
+      return response.data || response;
+    } catch (error) {
+      console.error("Error fetching reward config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create reward config
+   */
+  async createRewardConfig(data: CustomerRewardConfig) {
+    try {
+      const response = await customerApi.createRewardConfig(data);
+      return response.data || response;
+    } catch (error) {
+      console.error("Error creating reward config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update reward config
+   */
+  async updateRewardConfig(businessId: string, data: Partial<CustomerRewardConfig>, branchId?: string | null) {
+    try {
+      const response = await customerApi.updateRewardConfig(businessId, data, branchId);
+      return response.data || response;
+    } catch (error) {
+      console.error("Error updating reward config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete reward config
+   */
+  async deleteRewardConfig(businessId: string, branchId?: string | null) {
+    try {
+      const response = await customerApi.deleteRewardConfig(businessId, branchId);
+      return response.data || response;
+    } catch (error) {
+      console.error("Error deleting reward config:", error);
       throw error;
     }
   },

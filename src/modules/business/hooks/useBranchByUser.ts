@@ -1,9 +1,9 @@
 "use client";
-
+ 
 import { useCallback, useEffect, useState } from "react";
-
+ 
 import { businessService } from "../services/business.service";
-
+ 
 export interface BranchByUserBusinessRecord {
   id?: string | number;
   tenantId?: string | number;
@@ -19,7 +19,7 @@ export interface BranchByUserBusinessRecord {
   status?: string | null;
   documents?: Array<Record<string, unknown>>;
 }
-
+ 
 export interface BranchByUserBranchRecord {
   id?: string | number;
   tenantId?: string | number;
@@ -41,13 +41,13 @@ export interface BranchByUserBranchRecord {
   note?: string | null;
   documents?: Array<Record<string, unknown>>;
 }
-
+ 
 export interface BranchByUserResponseData {
   user?: Record<string, unknown> | null;
   business?: BranchByUserBusinessRecord | null;
   branch?: BranchByUserBranchRecord | null;
 }
-
+ 
 export interface BranchByUserDebug {
   method: "GET";
   endpoint: string;
@@ -56,7 +56,7 @@ export interface BranchByUserDebug {
   response: BranchByUserResponseData | null;
   calledAt: string;
 }
-
+ 
 export interface UseBranchByUserReturn {
   data: BranchByUserResponseData | null;
   loading: boolean;
@@ -64,14 +64,14 @@ export interface UseBranchByUserReturn {
   refetch: () => Promise<void>;
   debug: BranchByUserDebug;
 }
-
+ 
 const endpoint = "/business/business-branches/getBranchByUser";
-
+ 
 export function useBranchByUser(): UseBranchByUserReturn {
   const [data, setData] = useState<BranchByUserResponseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-
+ 
   const [debug, setDebug] = useState<BranchByUserDebug>({
     method: "GET",
     endpoint,
@@ -80,18 +80,18 @@ export function useBranchByUser(): UseBranchByUserReturn {
     response: null,
     calledAt: new Date().toISOString(),
   });
-
+ 
   const fetchBranchDetails = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
+ 
       const response = await businessService.getBranchDetailsByUser();
-
+ 
       const nextData = (response ?? null) as BranchByUserResponseData | null;
-
+ 
       setData(nextData);
-
+ 
       setDebug({
         method: "GET",
         endpoint,
@@ -100,7 +100,7 @@ export function useBranchByUser(): UseBranchByUserReturn {
         response: nextData,
         calledAt: new Date().toISOString(),
       });
-
+ 
       console.debug("[useBranchByUser] request", {
         method: "GET",
         endpoint,
@@ -111,10 +111,10 @@ export function useBranchByUser(): UseBranchByUserReturn {
         err instanceof Error
           ? err
           : new Error("Failed to fetch branch details");
-
+ 
       setError(nextError);
       setData(null);
-
+ 
       setDebug({
         method: "GET",
         endpoint,
@@ -123,17 +123,17 @@ export function useBranchByUser(): UseBranchByUserReturn {
         response: null,
         calledAt: new Date().toISOString(),
       });
-
+ 
       console.error("[useBranchByUser] error", nextError);
     } finally {
       setLoading(false);
     }
   }, []);
-
+ 
   useEffect(() => {
     void fetchBranchDetails();
   }, [fetchBranchDetails]);
-
+ 
   return {
     data,
     loading,

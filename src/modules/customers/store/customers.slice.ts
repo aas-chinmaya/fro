@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { Customer } from "../types";
+import { Customer, CustomerRewardConfig } from "../types";
 
 interface CustomerState {
   customers: Customer[];
@@ -9,6 +9,10 @@ interface CustomerState {
   totalRecords: number;
   currentPage: number;
   pageSize: number;
+
+  rewardConfigs: CustomerRewardConfig[];
+  rewardLoading: boolean;
+  rewardError: string | null;
 }
 
 const initialState: CustomerState = {
@@ -19,6 +23,10 @@ const initialState: CustomerState = {
   totalRecords: 0,
   currentPage: 1,
   pageSize: 10,
+
+  rewardConfigs: [],
+  rewardLoading: false,
+  rewardError: null,
 };
 
 const customersSlice = createSlice({
@@ -82,6 +90,39 @@ const customersSlice = createSlice({
       state.selectedCustomer = null;
       state.error = null;
     },
+
+    // Reward config reducers
+    setRewardConfigs(state, action: PayloadAction<CustomerRewardConfig[]>) {
+      state.rewardConfigs = action.payload;
+    },
+
+    addRewardConfig(state, action: PayloadAction<CustomerRewardConfig>) {
+      state.rewardConfigs = [action.payload, ...state.rewardConfigs];
+    },
+
+    updateRewardConfig(state, action: PayloadAction<CustomerRewardConfig>) {
+      const reward = action.payload;
+      state.rewardConfigs = state.rewardConfigs.map((item) =>
+        item.businessId === reward.businessId && (item.branchId || "all") === (reward.branchId || "all")
+          ? reward
+          : item
+      );
+    },
+
+    removeRewardConfig(state, action: PayloadAction<{ businessId: string; branchId?: string | null }>) {
+      const { businessId, branchId } = action.payload;
+      state.rewardConfigs = state.rewardConfigs.filter(
+        (item) => !(item.businessId === businessId && (item.branchId || "all") === (branchId || "all"))
+      );
+    },
+
+    setRewardConfigLoading(state, action: PayloadAction<boolean>) {
+      state.rewardLoading = action.payload;
+    },
+
+    setRewardConfigError(state, action: PayloadAction<string | null>) {
+      state.rewardError = action.payload;
+    },
   },
 });
 
@@ -95,6 +136,12 @@ export const {
   setError,
   setPagination,
   clearCustomers,
+  setRewardConfigs,
+  addRewardConfig,
+  updateRewardConfig,
+  removeRewardConfig,
+  setRewardConfigLoading,
+  setRewardConfigError,
 } = customersSlice.actions;
 
 export default customersSlice.reducer;

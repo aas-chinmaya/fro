@@ -92,7 +92,7 @@ export default function AllBusiness() {
 
   if (!businesses.length) {
     return (
-      <div className="rounded-lg border bg-primary/5 p-10 text-center">
+      <div className="rounded-lg border bg-white p-10 text-center">
         <Building2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
 
         <h3 className="text-base font-semibold">

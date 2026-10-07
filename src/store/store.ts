@@ -8,14 +8,11 @@ import businessReducer from "@/modules/business/store/businessSlice";
 import { masterReducer as businessSetupMasterReducer } from "@/modules/business/setup";
 import globalDocumentTypeReducer from "@/modules/vendor/masters/store/globalDocumentTypeSlice";
 import vendorCategoryReducer from "@/modules/vendor/masters/store/vendorCategorySlice";
-
-//sales modules
 import customersReducer from "@/modules/customers/store/customers.slice";
-
+import warehouseReducer from "@/modules/warehouse/store/warehouseSlice";
 
 // RTK Query
 import { baseApi } from "@/services/baseApi";
-
 
 const store = configureStore({
   reducer: {
@@ -29,15 +26,14 @@ const store = configureStore({
     businessSetupMasters: businessSetupMasterReducer,
     vendorDocumentTypes: globalDocumentTypeReducer,
     vendorCategories: vendorCategoryReducer,
+    warehouse: warehouseReducer,
 
-
-      // RTK Query
-        [baseApi.reducerPath]: baseApi.reducer,
+    // RTK Query
+    [baseApi.reducerPath]: baseApi.reducer,
   },
 
-
-   middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat(baseApi.middleware),
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(baseApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

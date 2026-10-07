@@ -1,110 +1,71 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import type { CreditNote } from "../../types/credit-note.types";
-import { creditNoteColumns } from "./credit-note-columns";
+import {
+  DataTable,
+  Pagination,
+  Search,
+  TableToolbar,
+} from "@/components/data-table";
 
-interface Props {
-  rows: CreditNote[];
+import CreditNoteFilters from "./credit-note-filters";
+import { CreditNoteColumns } from "./credit-note-columns";
+import type { CreditNote } from "../../types/credit-note.types";
+
+interface CreditNoteTableProps {
+  creditNotes: CreditNote[];
   loading?: boolean;
-  page: number;
-  totalPages: number;
-  total: number;
+  page?: number;
+  totalPages?: number;
+  search: string;
+  status: string;
+  period: string;
+  onSearchChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onPeriodChange: (value: string) => void;
   onPageChange: (page: number) => void;
-  onRefresh?: () => void;
 }
 
-export function CreditNoteTable({
-  rows,
-  loading,
-  page,
-  totalPages,
-  total,
+export default function CreditNoteTable({
+  creditNotes,
+  loading = false,
+  page = 1,
+  totalPages = 1,
+  search,
+  status,
+  period,
+  onSearchChange,
+  onStatusChange,
+  onPeriodChange,
   onPageChange,
-  onRefresh,
-}: Props) {
-  const columns = creditNoteColumns(onRefresh);
-
+}: CreditNoteTableProps) {
   return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50/80 text-xs text-slate-500">
-            <tr>
-              {columns.map((c) => (
-                <th key={c.key} className="px-3 py-2.5 font-medium">
-                  {c.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-3 py-8 text-center text-slate-400"
-                >
-                  Loading…
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-3 py-8 text-center text-slate-400"
-                >
-                  No credit notes found
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50"
-                >
-                  {columns.map((c) => (
-                    <td key={c.key} className="px-3 py-2.5 align-middle">
-                      {c.cell(row)}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="space-y-4">
+      <TableToolbar>
+        <Search
+          placeholder="Search credit note..."
+          value={search}
+          onChange={onSearchChange}
+        />
+        <CreditNoteFilters
+          value={status}
+          onChange={onStatusChange}
+          period={period}
+          onPeriodChange={onPeriodChange}
+        />
+      </TableToolbar>
 
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>
-          {total} record{total === 1 ? "" : "s"}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8"
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {page} / {totalPages}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8"
-            disabled={page >= totalPages}
-            onClick={() => onPageChange(page + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <DataTable
+        columns={CreditNoteColumns}
+        data={creditNotes}
+        loading={loading}
+        emptyMessage="No credit notes found."
+      />
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
     </div>
   );
 }

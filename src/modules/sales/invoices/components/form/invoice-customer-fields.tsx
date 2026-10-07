@@ -190,8 +190,6 @@ export function InvoiceCustomerFields() {
     setValue("buyerGSTIN", "", { shouldDirty: true });
     setValue("buyerPAN", "", { shouldDirty: true });
     setValue("buyerType", "UNREGISTERED", { shouldDirty: true });
-    setValue("tdsEntries", [], { shouldDirty: true });
-    setValue("tdsAmount", 0, { shouldDirty: true });
     setValue("billingAddressLine1", "", {
       shouldDirty: true,
       shouldValidate: true,
@@ -249,30 +247,6 @@ export function InvoiceCustomerFields() {
         ? "REGISTERED"
         : "UNREGISTERED";
     setValue("buyerType", nextType, { shouldDirty: true });
-
-    // Prefill TDS from customer when available
-    const cTds = cAny as {
-      tdsEntries?: { section?: string; rate?: number }[];
-      tdsSection?: string;
-      tdsRate?: number;
-    };
-    let nextTds: { section: string; rate: number }[] = [];
-    if (Array.isArray(cTds.tdsEntries) && cTds.tdsEntries.length > 0) {
-      nextTds = cTds.tdsEntries
-        .map((e) => ({
-          section: String(e.section || "").trim().toUpperCase(),
-          rate: Number(e.rate) || 0,
-        }))
-        .filter((e) => e.section && e.rate >= 0);
-    } else if (cTds.tdsSection) {
-      nextTds = [
-        {
-          section: String(cTds.tdsSection).trim().toUpperCase(),
-          rate: Number(cTds.tdsRate) || 0,
-        },
-      ];
-    }
-    setValue("tdsEntries", nextTds, { shouldDirty: true });
 
     // Build address list from:
     // 1) full addresses[] if select passes it

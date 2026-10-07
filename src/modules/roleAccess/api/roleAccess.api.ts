@@ -1,3 +1,4 @@
+import axios from 'axios';
 import Api from '@/services/api';
 import {
   getApis,
@@ -9,6 +10,11 @@ import {
 import { ROLE_ACCESS_ENDPOINTS } from '@/modules/roleAccess/endPoint/roleAccess.endpoint';
 import type { ModuleNode, PermissionPayload, PermissionRequestPayload, PermissionTreeModule } from '@/modules/roleAccess/types';
 import type { Role } from '@/modules/masters/types';
+
+export interface RoutePermissionResponse {
+  success: boolean;
+  message?: string;
+}
 
 const buildAllowedTree = (modules: PermissionTreeModule[]): ModuleNode[] => {
   return (modules ?? []).map((module: any) => ({
@@ -440,6 +446,27 @@ export const revokePermission = async (roleId: string | number, apiId: string | 
       withCredentials: true,
     }
   );
+};
+
+export const checkRoutePermission = async (
+  route: string
+): Promise<RoutePermissionResponse> => {
+  try {
+    const response = await Api.post<RoutePermissionResponse>(
+      ROLE_ACCESS_ENDPOINTS.CHECK_ROUTE_PERMISSION,
+      { route }
+    );
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to check route permission'
+      );
+    }
+
+    throw error;
+  }
 };
 
 export const fetchRolesList = async (): Promise<Role[]> => {

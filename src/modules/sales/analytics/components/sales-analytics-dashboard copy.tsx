@@ -1,630 +1,3 @@
-
-
-// "use client";
-
-// import React, { useState, useEffect } from "react";
-// import Link from "next/link";
-// import {
-//   Area,
-//   AreaChart,
-//   Bar,
-//   BarChart,
-//   Cell,
-//   Pie,
-//   PieChart,
-//   ResponsiveContainer,
-//   Tooltip as RechartsTooltip,
-//   XAxis,
-//   YAxis,
-// } from "recharts";
-// import {
-//   ArrowDownRight,
-//   ArrowUpRight,
-//   RefreshCw,
-//   TrendingUp,
-//   Wallet,
-//   Banknote,
-//   AlertCircle,
-//   FileText,
-//   Package,
-//   CheckCircle2,
-//   CreditCard,
-//   ShoppingCart,
-//   Users,
-//   Receipt,
-//   IndianRupee,
-//   ChevronRight,
-//   Filter,
-//   Clock,
-//   CircleDollarSign,
-//   Truck,
-// } from "lucide-react";
-
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Skeleton } from "@/components/ui/skeleton";
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from "@/components/ui/select";
-
-// // ─── Data ───────────────────────────────────────────────────────────────────
-// const SALES_TREND = [
-//   { d: "Sun", sales: 3.2, prev: 2.8 },
-//   { d: "Mon", sales: 4.1, prev: 3.5 },
-//   { d: "Tue", sales: 5.4, prev: 4.2 },
-//   { d: "Wed", sales: 6.0, prev: 5.1 },
-//   { d: "Thu", sales: 5.2, prev: 4.8 },
-//   { d: "Fri", sales: 7.1, prev: 5.9 },
-//   { d: "Sat", sales: 6.8, prev: 6.0 },
-// ];
-
-// const PAYMENT_METHODS = [
-//   { name: "UPI", value: 18.4, color: "var(--info)" },
-//   { name: "Card", value: 12.1, color: "var(--primary)" },
-//   { name: "Cash", value: 7.8, color: "var(--success)" },
-//   { name: "Bank", value: 4.5, color: "var(--violet)" },
-// ];
-
-// const PIPELINE = [
-//   { label: "Quotation", count: 184, value: 32.5, href: "/sales/quotations" },
-//   { label: "Accepted", count: 126, value: 24.8, href: "/sales/orders" },
-//   { label: "Invoiced", count: 108, value: 22.4, href: "/sales/invoices" },
-//   { label: "Paid", count: 92, value: 18.2, href: "/sales/payments" },
-// ];
-
-// const AGEING = [
-//   { label: "0–30 days", value: "₹7.2L", pct: 62, tone: "success" },
-//   { label: "31–60 days", value: "₹2.5L", pct: 22, tone: "warning" },
-//   { label: "61–90 days", value: "₹1.2L", pct: 10, tone: "warning" },
-//   { label: "90+ days", value: "₹0.7L", pct: 6, tone: "danger" },
-// ];
-
-// const ADJUSTMENTS = [
-//   { l: "Credit Notes", v: "₹45K", n: "18", href: "/sales/credit-notes" },
-//   { l: "Debit Notes", v: "₹18K", n: "7", href: "/sales/debit-notes" },
-//   { l: "Returns", v: "₹32K", n: "12", href: "/sales/returns" },
-// ];
-
-// const KPIS = [
-//   { label: "Total Sales", value: "₹42.8L", delta: "+12.4%", up: true, icon: TrendingUp },
-//   { label: "Net Sales", value: "₹38.6L", delta: "+9.8%", up: true, icon: Banknote },
-//   { label: "Collected", value: "₹31.2L", delta: "+15.2%", up: true, icon: Wallet },
-//   { label: "Outstanding", value: "₹11.6L", delta: "-3.1%", up: false, icon: AlertCircle },
-// ];
-
-// const QUICK_STATS = [
-//   { icon: IndianRupee, label: "Avg. Order", value: "₹3,960" },
-//   { icon: ShoppingCart, label: "Orders", value: "1,082" },
-//   { icon: Users, label: "Customers", value: "648" },
-//   { icon: Receipt, label: "Conversion", value: "68%" },
-// ];
-
-// const FILTER_OPTIONS = [
-//   "Today", "Yesterday", "This Week", "Last 7 Days", "This Month",
-//   "Last 30 Days", "This Quarter", "This Year", "FY 2025-26", "FY 2024-25",
-// ];
-
-// const TONE_BG: Record<string, string> = {
-//   success: "bg-[var(--success)]",
-//   warning: "bg-[var(--warning)]",
-//   danger: "bg-[var(--danger)]",
-// };
-
-// function cn(...c: (string | false | undefined)[]) {
-//   return c.filter(Boolean).join(" ");
-// }
-
-// // ─── Main ───────────────────────────────────────────────────────────────────
-// export default function SalesAnalyticsDashboard() {
-//   const [period, setPeriod] = useState("Today");
-//   const [loading, setLoading] = useState(true);
-//   const [refreshing, setRefreshing] = useState(false);
-
-//   useEffect(() => {
-//     const t = setTimeout(() => setLoading(false), 800);
-//     return () => clearTimeout(t);
-//   }, []);
-
-//   const refresh = () => {
-//     setRefreshing(true);
-//     setTimeout(() => setRefreshing(false), 500);
-//   };
-
-//   return (
-//       <div className="">
-
-//         {/* Header */}
-//         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-//           <div>
-//             <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
-//               Sales Analytics
-//             </h1>
-//             <p className="mt-0.5 text-sm text-muted-foreground">
-//               Performance, collections & pipeline overview
-//             </p>
-//           </div>
-//           <div className="flex flex-wrap items-center gap-2">
-//             <Select value={period} onValueChange={setPeriod}>
-//               <SelectTrigger className="h-9 w-[160px] rounded-md border-border/60 bg-white text-xs font-medium shadow-none">
-//                 <div className="flex items-center gap-1.5">
-//                   <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-//                   <SelectValue />
-//                 </div>
-//               </SelectTrigger>
-//               <SelectContent>
-//                 {FILTER_OPTIONS.map((option) => (
-//                   <SelectItem key={option} value={option} className="text-xs">
-//                     {option}
-//                   </SelectItem>
-//                 ))}
-//               </SelectContent>
-//             </Select>
-//             <Button
-//               size="sm"
-//               className="h-9 gap-1.5 rounded-md px-3 text-xs"
-//               onClick={refresh}
-//               disabled={refreshing}
-//             >
-//               <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-//               Refresh
-//             </Button>
-//           </div>
-//         </div>
-
-//         {/* KPIs – slightly larger */}
-//         <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-//           {loading
-//             ? Array.from({ length: 4 }).map((_, i) => (
-//                 <Card key={i} className="border-border/50 shadow-none">
-//                   <CardContent className="space-y-2.5 p-4">
-//                     <div className="flex justify-between">
-//                       <Skeleton className="h-9 w-9 rounded-md" />
-//                       <Skeleton className="h-5 w-14" />
-//                     </div>
-//                     <Skeleton className="h-7 w-24" />
-//                     <Skeleton className="h-3.5 w-20" />
-//                   </CardContent>
-//                 </Card>
-//               ))
-//             : KPIS.map((k) => (
-//                 <Card
-//                   key={k.label}
-//                   className="border-border/50 shadow-none transition-shadow hover:shadow-sm"
-//                 >
-//                   <CardContent className="p-4">
-//                     <div className="flex items-start justify-between gap-2">
-//                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
-//                         <k.icon className="h-4 w-4 text-primary" />
-//                       </div>
-//                       <span
-//                         className={cn(
-//                           "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold leading-none",
-//                           k.up
-//                             ? "bg-[var(--success)]/10 text-[var(--success)]"
-//                             : "bg-[var(--danger)]/10 text-[var(--danger)]"
-//                         )}
-//                       >
-//                         {k.up ? (
-//                           <ArrowUpRight className="h-3 w-3" />
-//                         ) : (
-//                           <ArrowDownRight className="h-3 w-3" />
-//                         )}
-//                         {k.delta}
-//                       </span>
-//                     </div>
-//                     <p className="mt-3 font-heading text-xl font-semibold tracking-tight leading-none sm:text-2xl">
-//                       {k.value}
-//                     </p>
-//                     <p className="mt-1.5 text-xs font-medium text-muted-foreground">
-//                       {k.label}
-//                     </p>
-//                   </CardContent>
-//                 </Card>
-//               ))}
-//         </div>
-
-//         {/* Quick Stats – roomier strip */}
-//         <Card className="mb-4 border-border/50 shadow-none">
-//           <CardContent className="p-0">
-//             {loading ? (
-//               <div className="grid grid-cols-2 gap-px sm:grid-cols-4">
-//                 {Array.from({ length: 4 }).map((_, i) => (
-//                   <div key={i} className="p-4">
-//                     <Skeleton className="h-11 w-full" />
-//                   </div>
-//                 ))}
-//               </div>
-//             ) : (
-//               <div className="grid grid-cols-2 divide-x divide-y divide-border/50 sm:grid-cols-4 sm:divide-y-0">
-//                 {QUICK_STATS.map((s) => (
-//                   <div key={s.label} className="flex items-center gap-3 px-4 py-3.5">
-//                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
-//                       <s.icon className="h-4 w-4 text-primary" />
-//                     </div>
-//                     <div className="min-w-0">
-//                       <p className="text-[11px] text-muted-foreground">{s.label}</p>
-//                       <p className="font-heading text-base font-semibold leading-tight">
-//                         {s.value}
-//                       </p>
-//                     </div>
-//                   </div>
-//                 ))}
-//               </div>
-//             )}
-//           </CardContent>
-//         </Card>
-
-//         {/* Chart + Payment – taller charts */}
-//         <div className="mb-4 grid gap-3 lg:grid-cols-12">
-//           <Card className="border-border/50 shadow-none lg:col-span-8">
-//             <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3">
-//               <div className="flex items-center gap-2">
-//                 <TrendingUp className="h-4 w-4 text-primary" />
-//                 <CardTitle className="text-sm font-semibold">Sales Trend</CardTitle>
-//               </div>
-//               <div className="flex gap-4 text-[11px]">
-//                 <span className="flex items-center gap-1.5">
-//                   <span className="h-2 w-2 rounded-full bg-primary" />
-//                   Sales
-//                 </span>
-//                 <span className="flex items-center gap-1.5 text-muted-foreground">
-//                   <span className="h-2 w-2 rounded-full bg-[var(--neutral)]" />
-//                   Previous
-//                 </span>
-//               </div>
-//             </CardHeader>
-//             <CardContent className="px-4 pb-4 pt-0">
-//               {loading ? (
-//                 <Skeleton className="h-[220px] w-full rounded-md" />
-//               ) : (
-//                 <div className="h-[220px] w-full">
-//                   <ResponsiveContainer width="100%" height="100%">
-//                     <AreaChart
-//                       data={SALES_TREND}
-//                       margin={{ top: 8, right: 4, left: -16, bottom: 0 }}
-//                     >
-//                       <defs>
-//                         <linearGradient id="gSales" x1="0" y1="0" x2="0" y2="1">
-//                           <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.16} />
-//                           <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-//                         </linearGradient>
-//                       </defs>
-//                       <XAxis
-//                         dataKey="d"
-//                         tick={{ fontSize: 11, fill: "var(--neutral)" }}
-//                         axisLine={false}
-//                         tickLine={false}
-//                       />
-//                       <YAxis
-//                         tick={{ fontSize: 11, fill: "var(--neutral)" }}
-//                         axisLine={false}
-//                         tickLine={false}
-//                         tickFormatter={(v) => `${v}L`}
-//                         width={36}
-//                       />
-//                       <RechartsTooltip
-//                         contentStyle={{
-//                           borderRadius: 8,
-//                           border: "1px solid hsl(var(--border))",
-//                           fontSize: 12,
-//                           background: "hsl(var(--card))",
-//                         }}
-//                         formatter={(v: number, n: string) => [
-//                           `₹${v}L`,
-//                           n === "sales" ? "Sales" : "Previous",
-//                         ]}
-//                       />
-//                       <Area
-//                         type="monotone"
-//                         dataKey="prev"
-//                         stroke="var(--neutral)"
-//                         strokeWidth={1.5}
-//                         fill="none"
-//                         dot={false}
-//                         strokeDasharray="3 3"
-//                       />
-//                       <Area
-//                         type="monotone"
-//                         dataKey="sales"
-//                         stroke="var(--primary)"
-//                         strokeWidth={2.25}
-//                         fill="url(#gSales)"
-//                         dot={false}
-//                         activeDot={{ r: 4, fill: "var(--primary)", strokeWidth: 0 }}
-//                       />
-//                     </AreaChart>
-//                   </ResponsiveContainer>
-//                 </div>
-//               )}
-//             </CardContent>
-//           </Card>
-
-//           <Card className="border-border/50 shadow-none lg:col-span-4">
-//             <CardHeader className="px-4 py-3">
-//               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-//                 <CreditCard className="h-4 w-4 text-primary" />
-//                 Payment Methods
-//               </CardTitle>
-//               <p className="text-xs text-muted-foreground">
-//                 Total <span className="font-semibold text-primary">₹42.8L</span>
-//               </p>
-//             </CardHeader>
-//             <CardContent className="px-4 pb-4 pt-0">
-//               {loading ? (
-//                 <Skeleton className="mx-auto h-[130px] w-[130px] rounded-full" />
-//               ) : (
-//                 <>
-//                   <div className="mx-auto h-[130px] w-[130px]">
-//                     <ResponsiveContainer width="100%" height="100%">
-//                       <PieChart>
-//                         <Pie
-//                           data={PAYMENT_METHODS}
-//                           dataKey="value"
-//                           cx="50%"
-//                           cy="50%"
-//                           innerRadius={36}
-//                           outerRadius={56}
-//                           strokeWidth={0}
-//                           startAngle={90}
-//                           endAngle={-270}
-//                         >
-//                           {PAYMENT_METHODS.map((e) => (
-//                             <Cell key={e.name} fill={e.color} />
-//                           ))}
-//                         </Pie>
-//                         <RechartsTooltip
-//                           contentStyle={{
-//                             borderRadius: 8,
-//                             border: "1px solid hsl(var(--border))",
-//                             fontSize: 12,
-//                             background: "hsl(var(--card))",
-//                           }}
-//                           formatter={(v: number) => [`₹${v}L`]}
-//                         />
-//                       </PieChart>
-//                     </ResponsiveContainer>
-//                   </div>
-//                   <div className="mt-3 space-y-1.5">
-//                     {PAYMENT_METHODS.map((t) => (
-//                       <div
-//                         key={t.name}
-//                         className="flex items-center justify-between text-xs"
-//                       >
-//                         <span className="flex items-center gap-2 text-muted-foreground">
-//                           <span
-//                             className="h-2 w-2 rounded-full"
-//                             style={{ background: t.color }}
-//                           />
-//                           {t.name}
-//                         </span>
-//                         <span className="font-semibold">₹{t.value}L</span>
-//                       </div>
-//                     ))}
-//                   </div>
-//                 </>
-//               )}
-//             </CardContent>
-//           </Card>
-//         </div>
-
-//         {/* Bottom row – larger cards */}
-//         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-//           {/* Pipeline */}
-//           <Card className="border-border/50 shadow-none">
-//             <CardHeader className="px-4 py-3.5">
-//               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-//                 <FileText className="h-4 w-4 text-primary" />
-//                 Sales Pipeline
-//               </CardTitle>
-//             </CardHeader>
-//             <CardContent className="px-4 pb-4 pt-4">
-//               {loading ? (
-//                 <Skeleton className="h-[210px] w-full rounded-md" />
-//               ) : (
-//                 <div className="h-[210px] w-full">
-//                   <ResponsiveContainer width="100%" height="100%">
-//                     <BarChart
-//                       data={PIPELINE}
-//                       layout="vertical"
-//                       margin={{ top: 4, right: 10, left: 0, bottom: 4 }}
-//                     >
-//                       <XAxis type="number" hide />
-//                       <YAxis
-//                         type="category"
-//                         dataKey="label"
-//                         width={72}
-//                         tick={{ fontSize: 11, fill: "var(--neutral)" }}
-//                         axisLine={false}
-//                         tickLine={false}
-//                       />
-//                       <RechartsTooltip
-//                         cursor={{ fill: "transparent" }}
-//                         contentStyle={{
-//                           borderRadius: 8,
-//                           border: "1px solid hsl(var(--border))",
-//                           fontSize: 12,
-//                           background: "hsl(var(--card))",
-//                         }}
-//                         formatter={(v: number, _: string, props: any) => [
-//                           `₹${v}L · ${props.payload.count} docs`,
-//                           "Value",
-//                         ]}
-//                       />
-//                       <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
-//                         {PIPELINE.map((_, i) => (
-//                           <Cell
-//                             key={i}
-//                             fill="var(--primary)"
-//                             fillOpacity={1 - i * 0.15}
-//                           />
-//                         ))}
-//                       </Bar>
-//                     </BarChart>
-//                   </ResponsiveContainer>
-//                 </div>
-//               )}
-//               {!loading && (
-//                 <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 border-t border-border/40 pt-2.5">
-//                   {PIPELINE.map((p) => (
-//                     <Link
-//                       key={p.label}
-//                       href={p.href}
-//                       className="inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-primary"
-//                     >
-//                       <FileText className="h-3 w-3" />
-//                       {p.label}
-//                       <ChevronRight className="h-3 w-3" />
-//                     </Link>
-//                   ))}
-//                 </div>
-//               )}
-//             </CardContent>
-//           </Card>
-
-//           {/* Receivables */}
-//           <Card className="border-border/50 shadow-none">
-//             <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3.5">
-//               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-//                 <Wallet className="h-4 w-4 text-primary" />
-//                 Receivables
-//               </CardTitle>
-//               <span className="flex items-center gap-1.5 text-sm font-semibold text-primary">
-//                 ₹11.6L
-//               </span>
-//             </CardHeader>
-//             <CardContent className="px-4 pb-4 pt-4">
-//               {loading ? (
-//                 <div className="space-y-3">
-//                   <div className="grid grid-cols-2 gap-2.5">
-//                     <Skeleton className="h-14 rounded-md" />
-//                     <Skeleton className="h-14 rounded-md" />
-//                   </div>
-//                   {Array.from({ length: 4 }).map((_, i) => (
-//                     <Skeleton key={i} className="h-4 w-full" />
-//                   ))}
-//                 </div>
-//               ) : (
-//                 <>
-//                   <div className="mb-4 grid grid-cols-2 gap-2.5">
-//                     <div className="rounded-md bg-secondary/70 px-3.5 py-3">
-//                       <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-//                         <Clock className="h-3.5 w-3.5" />
-//                         Current
-//                       </p>
-//                       <p className="mt-1 font-heading text-base font-semibold">₹7.2L</p>
-//                     </div>
-//                     <div className="rounded-md bg-[var(--danger)]/10 px-3.5 py-3">
-//                       <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-//                         <AlertCircle className="h-3.5 w-3.5 text-[var(--danger)]" />
-//                         Overdue
-//                       </p>
-//                       <p className="mt-1 font-heading text-base font-semibold text-[var(--danger)]">
-//                         ₹4.4L
-//                       </p>
-//                     </div>
-//                   </div>
-//                   <div className="space-y-3">
-//                     {AGEING.map((a) => (
-//                       <div key={a.label} className="flex items-center gap-2.5">
-//                         <span className="w-[70px] shrink-0 text-[11px] text-muted-foreground">
-//                           {a.label}
-//                         </span>
-//                         <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-secondary">
-//                           <div
-//                             className={cn("h-full rounded-full", TONE_BG[a.tone])}
-//                             style={{ width: `${a.pct}%` }}
-//                           />
-//                         </div>
-//                         <span className="w-11 shrink-0 text-right text-[11px] font-medium">
-//                           {a.value}
-//                         </span>
-//                       </div>
-//                     ))}
-//                   </div>
-//                 </>
-//               )}
-//             </CardContent>
-//           </Card>
-
-//           {/* Adjustments */}
-//           <Card className="border-border/50 shadow-none md:col-span-2 lg:col-span-1">
-//             <CardHeader className="px-4 py-3.5">
-//               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-//                 <Package className="h-4 w-4 text-primary" />
-//                 Adjustments & Delivery
-//               </CardTitle>
-//             </CardHeader>
-//             <CardContent className="px-4 pb-4 pt-4">
-//               {loading ? (
-//                 <div className="space-y-2.5">
-//                   {Array.from({ length: 3 }).map((_, i) => (
-//                     <Skeleton key={i} className="h-12 w-full rounded-md" />
-//                   ))}
-//                   <Skeleton className="h-16 w-full rounded-md" />
-//                 </div>
-//               ) : (
-//                 <>
-//                   <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3 lg:grid-cols-1">
-//                     {ADJUSTMENTS.map((a) => (
-//                       <Link
-//                         key={a.l}
-//                         href={a.href}
-//                         className="flex items-center justify-between rounded-md bg-secondary/50 px-3.5 py-3 transition-colors hover:bg-secondary"
-//                       >
-//                         <div className="flex items-center gap-2.5">
-//                           <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
-//                           <div>
-//                             <p className="text-xs font-medium">{a.l}</p>
-//                             <p className="text-[11px] text-muted-foreground">
-//                               {a.n} docs
-//                             </p>
-//                           </div>
-//                         </div>
-//                         <div className="flex items-center gap-1">
-//                           <p className="font-heading text-sm font-semibold text-primary">
-//                             {a.v}
-//                           </p>
-//                           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-//                         </div>
-//                       </Link>
-//                     ))}
-//                   </div>
-//                   <div className="rounded-md bg-secondary/50 px-3.5 py-3.5">
-//                     <div className="mb-2 flex items-center justify-between text-xs">
-//                       <span className="flex items-center gap-1.5 text-muted-foreground">
-//                         <Truck className="h-4 w-4" />
-//                         Delivery
-//                       </span>
-//                       <span className="font-medium">128 / 156</span>
-//                     </div>
-//                     <div className="flex h-2 overflow-hidden rounded-full bg-background/70">
-//                       <div className="bg-[var(--success)]" style={{ width: "82%" }} />
-//                       <div className="bg-[var(--warning)]" style={{ width: "18%" }} />
-//                     </div>
-//                     <div className="mt-2 flex justify-between text-[11px]">
-//                       <span className="flex items-center gap-1 text-[var(--success)]">
-//                         <CheckCircle2 className="h-3.5 w-3.5" />
-//                         82% done
-//                       </span>
-//                       <span className="text-[var(--warning)]">18% pending</span>
-//                     </div>
-//                   </div>
-//                 </>
-//               )}
-//             </CardContent>
-//           </Card>
-//         </div>
-//       </div>
-//   );
-// }
-
-
-
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -855,52 +228,52 @@ export default function SalesBillingAnalyticsDashboard() {
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i} className="border-border/50 shadow-none">
-                <CardContent className="space-y-2.5 p-4">
-                  <div className="flex justify-between">
-                    <Skeleton className="h-9 w-9 rounded-md" />
-                    <Skeleton className="h-5 w-14" />
-                  </div>
-                  <Skeleton className="h-7 w-24" />
-                  <Skeleton className="h-3.5 w-20" />
-                </CardContent>
-              </Card>
-            ))
+            <Card key={i} className="border-border/50 shadow-none">
+              <CardContent className="space-y-2.5 p-4">
+                <div className="flex justify-between">
+                  <Skeleton className="h-9 w-9 rounded-md" />
+                  <Skeleton className="h-5 w-14" />
+                </div>
+                <Skeleton className="h-7 w-24" />
+                <Skeleton className="h-3.5 w-20" />
+              </CardContent>
+            </Card>
+          ))
           : KPIS.map((k) => (
-              <Card
-                key={k.label}
-                className="border-border/50 shadow-none transition-shadow hover:shadow-sm"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
-                      <k.icon className="h-4 w-4 text-primary" />
-                    </div>
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold leading-none",
-                        k.up
-                          ? "bg-[var(--success)]/10 text-[var(--success)]"
-                          : "bg-[var(--danger)]/10 text-[var(--danger)]"
-                      )}
-                    >
-                      {k.up ? (
-                        <ArrowUpRight className="h-3 w-3" />
-                      ) : (
-                        <ArrowDownRight className="h-3 w-3" />
-                      )}
-                      {k.delta}
-                    </span>
+            <Card
+              key={k.label}
+              className="border-border/50 shadow-none transition-shadow hover:shadow-sm"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
+                    <k.icon className="h-4 w-4 text-primary" />
                   </div>
-                  <p className="mt-3 font-heading text-xl font-semibold tracking-tight leading-none sm:text-2xl">
-                    {k.value}
-                  </p>
-                  <p className="mt-1.5 text-xs font-medium text-muted-foreground">
-                    {k.label}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold leading-none",
+                      k.up
+                        ? "bg-[var(--success)]/10 text-[var(--success)]"
+                        : "bg-[var(--danger)]/10 text-[var(--danger)]"
+                    )}
+                  >
+                    {k.up ? (
+                      <ArrowUpRight className="h-3 w-3" />
+                    ) : (
+                      <ArrowDownRight className="h-3 w-3" />
+                    )}
+                    {k.delta}
+                  </span>
+                </div>
+                <p className="mt-3 font-heading text-xl font-semibold tracking-tight leading-none sm:text-2xl">
+                  {k.value}
+                </p>
+                <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+                  {k.label}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
       </div>
 
       {/* Quick Stats */}
@@ -989,8 +362,8 @@ export default function SalesBillingAnalyticsDashboard() {
                         fontSize: 12,
                         background: "hsl(var(--card))",
                       }}
-                      formatter={(v: number, n: string) => [
-                        `₹${v}L`,
+                      formatter={(v, n) => [
+                        `₹${Number(v ?? 0)}L`,
                         n === "sales" ? "Sales" : "Previous",
                       ]}
                     />
@@ -1059,7 +432,7 @@ export default function SalesBillingAnalyticsDashboard() {
                           fontSize: 12,
                           background: "hsl(var(--card))",
                         }}
-                        formatter={(v: number) => [`₹${v}L`]}
+                        formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}L`]}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1077,7 +450,7 @@ export default function SalesBillingAnalyticsDashboard() {
                         />
                         {t.name}
                       </span>
-                      <span className="font-semibold">₹{t.value}L</span>
+                      <span className="font-semibold">₹{Number(t.value ?? 0).toLocaleString("en-IN")}L</span>
                     </div>
                   ))}
                 </div>
@@ -1125,10 +498,7 @@ export default function SalesBillingAnalyticsDashboard() {
                         fontSize: 12,
                         background: "hsl(var(--card))",
                       }}
-                      formatter={(v: number, _: string, props: any) => [
-                        `₹${v}L · ${props.payload.count} docs`,
-                        "Value",
-                      ]}
+                      formatter={(v, _, props) => [ `₹${Number(v ?? 0).toLocaleString("en-IN")}L · ${props.payload.count} docs`, "Value", ]}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
                       {PIPELINE.map((_, i) => (

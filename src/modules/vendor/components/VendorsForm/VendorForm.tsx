@@ -291,7 +291,12 @@ const buildDefaultValues = (defaults?: Record<string, any>): Record<string, any>
     displayName: defaults?.displayName ?? "",
     businessCategory: defaults?.businessCategory ?? "",
     remarks: defaults?.remarks ?? "",
-    logo: defaults?.logo ?? defaults?.logoUrl?.view ?? "",
+    logo:
+      defaults?.logo ??
+      (typeof defaults?.logoUrl === "string"
+        ? defaults.logoUrl
+        : defaults?.logoUrl?.view ?? defaults?.logoUrl?.download) ??
+      "",
     gstin: defaults?.gstin ?? taxSource.gstin ?? "",
     pan: defaults?.pan ?? taxSource.pan ?? "",
     email: defaults?.email ?? defaults?.vendorEmail ?? contactSource.email ?? "",
@@ -997,7 +1002,7 @@ export default function VendorForm({
               aria-busy={savingStep}
             >
               <span className="flex items-center gap-2">
-                {savingStep ? "Saving…" : "Continue"}
+                {savingStep ? "Saving…" : "Save & Next"}
                 <ArrowRight size={16} />
               </span>
             </Button>

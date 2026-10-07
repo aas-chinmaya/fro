@@ -1,49 +1,7 @@
 
-import type { Invoice, TdsEntry } from "../types/invoice.types";
+import type { Invoice } from "../types/invoice.types";
 import type { InvoiceFormValues, InvoiceItemFormValues } from "../types/invoice-form.types";
 import type { TaxType } from "../types/invoice.types";
-
-/** Common TDS sections (Income Tax Act). */
-export const TDS_SECTION_OPTIONS: { value: string; label: string; defaultRate: number }[] = [
-  { value: "194C", label: "194C — Contractors", defaultRate: 1 },
-  { value: "194J", label: "194J — Professional / technical fees", defaultRate: 10 },
-  { value: "194H", label: "194H — Commission / brokerage", defaultRate: 5 },
-  { value: "194I", label: "194I — Rent", defaultRate: 10 },
-  { value: "194Q", label: "194Q — Purchase of goods", defaultRate: 0.1 },
-  { value: "194A", label: "194A — Interest (other than securities)", defaultRate: 10 },
-  { value: "194O", label: "194O — E-commerce", defaultRate: 1 },
-];
-
-/** TDS on taxable amount (ex-GST). */
-export function computeTdsAmount(
-  taxableAmount: number,
-  entries: TdsEntry[] | null | undefined,
-): number {
-  const base = Math.max(0, Number(taxableAmount) || 0);
-  if (!entries?.length || base <= 0) return 0;
-  let total = 0;
-  for (const e of entries) {
-    const rate = Math.max(0, Number(e.rate) || 0);
-    if (!e.section || rate <= 0) continue;
-    total += (base * rate) / 100;
-  }
-  return Math.round(total * 100) / 100;
-}
-
-export function normalizeTdsEntries(raw: unknown): TdsEntry[] {
-  if (!Array.isArray(raw)) return [];
-  const out: TdsEntry[] = [];
-  for (const row of raw) {
-    if (!row || typeof row !== "object") continue;
-    const section = String((row as TdsEntry).section || "")
-      .trim()
-      .toUpperCase();
-    const rate = Number((row as TdsEntry).rate);
-    if (!section || !Number.isFinite(rate) || rate < 0) continue;
-    out.push({ section, rate: Math.round(rate * 1000) / 1000 });
-  }
-  return out;
-}
 
 
 /** Ensure API gets full ISO datetime (date-only inputs → start/end of day) */
@@ -214,8 +172,6 @@ export function getDefaultInvoiceValues(): InvoiceFormValues {
     cessAmount: 0,
     roundOffAmount: 0,
     grandTotal: 0,
-    tdsEntries: [],
-    tdsAmount: 0,
     paymentStatus: "PENDING",
     paymentMethod: "CASH",
     paidAmount: 0,
@@ -329,10 +285,6 @@ export function mapInvoiceToFormValues(
     cessAmount: num(inv.cessAmount),
     roundOffAmount: num(inv.roundOffAmount),
     grandTotal: num(inv.grandTotal),
-    tdsEntries: normalizeTdsEntries(
-      (inv as Invoice & { tdsEntries?: TdsEntry[] | null }).tdsEntries,
-    ),
-    tdsAmount: num((inv as Invoice & { tdsAmount?: number | null }).tdsAmount),
     paymentStatus: inv.paymentStatus || "PENDING",
     paymentMethod: normalizePaymentMethod(inv.paymentMethod),
     paidAmount: num(inv.paidAmount),
@@ -453,11 +405,6 @@ export function applyTotalsToValues(
   }
   // else keep existing roundOffAmount
   const grand = Math.round((rawGrand + roundOff) * 100) / 100;
-
-  // TDS on taxable (ex-GST); payload fields only
-  const tdsEntries = normalizeTdsEntries(values.tdsEntries);
-  const tdsAmount = computeTdsAmount(taxable, tdsEntries);
-
   return {
     ...values,
     items,
@@ -470,8 +417,6 @@ export function applyTotalsToValues(
     igstAmount: Math.round(igst * 100) / 100,
     roundOffAmount: roundOff,
     grandTotal: grand,
-    tdsEntries,
-    tdsAmount,
   };
 }
 
@@ -511,10 +456,6 @@ export function sanitizeCreatePayload(
   const grand = Math.round((raw + rRound) * 100) / 100;
   // Sync roundOff so raw + roundOff === grand
   rRound = Math.round((grand - raw) * 100) / 100;
-
-  // TDS — only these two fields go in payload
-  const rTdsEntries = normalizeTdsEntries(recomputed.tdsEntries ?? rest.tdsEntries);
-  const rTdsAmount = computeTdsAmount(rTaxable, rTdsEntries);
 
   const paid = Math.min(Math.max(num(rest.paidAmount), 0), grand);
   const pending = Math.max(Math.round((grand - paid) * 100) / 100, 0);
@@ -700,8 +641,6 @@ export function sanitizeCreatePayload(
     cessAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rCess,
     roundOffAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rRound,
     grandTotal: isDraft && num(recomputed.totalItems) === 0 ? 0 : grand,
-    tdsEntries: rTdsEntries,
-    tdsAmount: isDraft && num(recomputed.totalItems) === 0 ? 0 : rTdsAmount,
     // Seller / business snapshot from session (never hardcode)
     sellerTradeName: rest.sellerTradeName || null,
     sellerLegalName: rest.sellerLegalName || null,

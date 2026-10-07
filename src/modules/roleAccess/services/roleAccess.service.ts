@@ -1,7 +1,9 @@
 import type { Role } from '@/modules/masters/types';
 import type { PermissionPayload, PermissionRequestPayload } from '@/modules/roleAccess/types';
+import type { RoutePermissionResponse } from '@/modules/roleAccess/api/roleAccess.api';
 import {
   assignPermissions,
+  checkRoutePermission,
   editPermissions,
   fetchRolePermissions,
   fetchRolesList,
@@ -35,4 +37,10 @@ export const revokeRolePermissionService = async (
   apiId: string | number,
 ): Promise<void> => {
   await revokePermission(roleId, apiId);
+};
+
+export const checkRoutePermissionService = async (
+  route: string
+): Promise<RoutePermissionResponse> => {
+  return checkRoutePermission(route);
 };

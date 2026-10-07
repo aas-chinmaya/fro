@@ -3,4 +3,5 @@ export const ROLE_ACCESS_ENDPOINTS = {
   GET_PERMISSIONS: '/access/role-permissions',
   EDIT_PERMISSIONS: '/access/edit-permissions',
   REVOKE_PERMISSION: '/access/revoke-permission',
+  CHECK_ROUTE_PERMISSION: '/access/check-route-permission',
 };

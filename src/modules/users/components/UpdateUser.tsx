@@ -25,7 +25,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { FormField } from "@/components/form";
+import {
+  FormField,
+  PasswordInput,
+} from "@/components/form";
 
 import type {
   UpdateUserPayload,
@@ -333,9 +336,8 @@ export default function UpdateUser({
               label="Password"
               error={errors.password?.message}
             >
-              <Input
+              <PasswordInput
                 id="edit-password"
-                type="password"
                 placeholder="Leave blank to keep current password"
                 {...register("password")}
               />

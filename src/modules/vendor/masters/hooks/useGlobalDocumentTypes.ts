@@ -9,7 +9,7 @@ export function useGlobalDocumentTypes() {
   const state = useAppSelector((root) => root.vendorDocumentTypes);
 
   useEffect(() => {
-    void dispatch(fetchGlobalDocumentTypes({ page: 1, limit: 10 }));
+    void dispatch(fetchGlobalDocumentTypes({ page: 1, limit: 1000 }));
   }, [dispatch]);
 
   return {

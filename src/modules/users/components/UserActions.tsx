@@ -1,14 +1,15 @@
 "use client";
 
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { User } from "@/modules/users/types";
+import DeleteUser from "./deleteUser";
 
 interface UserActionsProps {
   user: User;
   onView?: (user: User) => void;
   onEdit?: (user: User) => void;
-  onDelete?: (user: User) => void;
+  onDelete?: (user: User) => Promise<void> | void;
 }
 
 export default function UserActions({ user, onView, onEdit, onDelete }: UserActionsProps) {
@@ -20,9 +21,12 @@ export default function UserActions({ user, onView, onEdit, onDelete }: UserActi
       <Button variant="ghost" className="p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition" size="icon" onClick={() => onEdit?.(user)}>
         <Pencil className="h-5 w-5" />
       </Button>
-      <Button variant="ghost" className="p-2 text-red-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition" size="icon" onClick={() => onDelete?.(user)}>
-        <Trash2 className="h-5 w-5" />
-      </Button>
+      {onDelete && (
+        <DeleteUser
+          user={user}
+          onDelete={() => onDelete(user)}
+        />
+      )}
     </div>
   );
 }

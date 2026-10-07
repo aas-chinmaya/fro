@@ -94,7 +94,7 @@ export interface VariantTypeMasterRow {
 
 export interface VariantValueMasterRow {
   id: string;
-  variantTypeId: number;
+  variantTypeId: string;
   value: string;
   shortName: string;
   displayOrder: number;
@@ -293,7 +293,7 @@ export interface UpdateVariantTypePayload {
 }
 
 export interface CreateVariantValuePayload {
-  variantTypeId: number;
+  variantTypeId: string;
   value: string;
   shortName: string;
   displayOrder: number;
@@ -301,7 +301,7 @@ export interface CreateVariantValuePayload {
 }
 
 export interface UpdateVariantValuePayload {
-  variantTypeId?: number;
+  variantTypeId?: string;
   value?: string;
   shortName?: string;
   displayOrder?: number;
@@ -371,7 +371,7 @@ export interface CreateProductPayload {
   minimumStock: number;
   maximumStock: number;
   image?: string;
-  variantTypeId?: number | null;
+  variantTypeId?: string | null;
   variantValueId?: number | null;
   createdBy?: string;
   updatedBy?: string;
@@ -392,7 +392,7 @@ export interface UpdateProductPayload {
   minimumStock?: number;
   maximumStock?: number;
   image?: string;
-  variantTypeId?: number | null;
+  variantTypeId?: string | null;
   variantValueId?: number | null;
   createdBy?: string;
   updatedBy?: string;

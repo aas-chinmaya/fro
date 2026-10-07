@@ -161,7 +161,7 @@ function VerifyOtpContent() {
       );
 
       router.push(
-        "/create-password?type=forgot-password"
+        "/reset-password"
       );
 
       return;

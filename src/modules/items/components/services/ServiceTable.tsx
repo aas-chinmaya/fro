@@ -48,11 +48,11 @@ export default function ServiceTable({
             header: "Sub Category",
             cell: ({ row }) => <span>{row.original.subCategory?.subCategoryName ?? "-"}</span>,
           },
-          {
-            id: "tax",
-            header: "Tax",
-            cell: ({ row }) => <span>{row.original.tax?.hsnCode ?? "-"}</span>,
-          },
+          // {
+          //   id: "tax",
+          //   header: "Tax",
+          //   cell: ({ row }) => <span>{row.original.tax?.hsnCode ?? "-"}</span>,
+          // },
           { accessorKey: "sacCode", header: "SAC Code" },
           { accessorKey: "serviceCharge", header: "Service Charge" },
           { accessorKey: "gstRate", header: "GST Rate" },

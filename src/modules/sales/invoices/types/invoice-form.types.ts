@@ -5,7 +5,6 @@ import type {
   InvoiceType,
   PaymentStatus,
   TaxType,
-  TdsEntry,
 } from "./invoice.types";
 
 export type InvoiceFormMode = "create" | "edit";
@@ -107,9 +106,6 @@ export interface InvoiceFormValues {
   cessAmount?: number;
   roundOffAmount?: number;
   grandTotal?: number;
-
-  tdsEntries?: TdsEntry[];
-  tdsAmount?: number;
 
   paymentStatus?: PaymentStatus;
   paymentMethod?: string | null;

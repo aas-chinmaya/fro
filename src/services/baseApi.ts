@@ -59,19 +59,18 @@ export const baseApi = createApi({
 
   baseQuery: axiosBaseQuery(),
 
-tagTypes: [
-    // Sales & Billing
-    "Quotations",
-    "DeliveryChallans",
 
-    "Invoices",
-    "PaymentReceipts",
-    "SalesBillingAnalytics",
-    
-    "PaymentAdjustments",
-    "CreditNotes",
-    "DebitNotes",
-  ],
+
+tagTypes: [
+  "Quotations",
+  "DeliveryChallans",
+  "Invoices",
+  "PaymentReceipts",
+  "PaymentAdjustments",
+  "CreditNotes",
+  "DebitNotes",
+  "SalesBillingAnalytics",
+],
 
   endpoints: () => ({}),
 });

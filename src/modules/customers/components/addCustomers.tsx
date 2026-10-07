@@ -41,8 +41,6 @@ export default function AddCustomers() {
   } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      businessId: "",
-      branchId: "",
       customerCode: "",
       customerType: "WALK_IN",
       name: "",
@@ -71,13 +69,8 @@ export default function AddCustomers() {
     try {
       const payload = {
         ...data,
-        businessId: data.businessId,
-        branchId: data.branchId,
         createdBy: user?.id || "",
-        addresses: data.addresses.map((address) => ({
-          businessId: data.businessId,
-          ...address,
-        })),
+        addresses: data.addresses,
       };
 
       if (!payload.createdBy) {
@@ -88,7 +81,7 @@ export default function AddCustomers() {
       await customersService.createCustomer(payload);
       notify.success("Customer created successfully.");
       reset();
-      router.push("/customers");
+      router.push("/customers/all-customers");
     } catch (error) {
       notify.error("Failed to create customer. Please try again.");
     }
@@ -98,17 +91,37 @@ export default function AddCustomers() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Business & Branch</h3>
-          <p className="text-sm text-muted">Required business and branch details.</p>
+          <h3 className="text-lg font-semibold">Basic Information</h3>
+          <p className="text-sm text-muted">Add customer identity and profile details.</p>
         </CardHeader>
 
         <CardContent className="grid gap-5 md:grid-cols-2">
-          <FormField label="Business ID" required error={errors.businessId?.message}>
-            <Input placeholder="Enter Business ID" {...register("businessId")} />
+          <FormField label="Customer Code" error={errors.customerCode?.message}>
+            <Input placeholder="CUST001" {...register("customerCode")} />
           </FormField>
 
-          <FormField label="Branch ID" required error={errors.branchId?.message}>
-            <Input placeholder="Enter Branch ID" {...register("branchId")} />
+          <FormField label="Customer Type" error={errors.customerType?.message}>
+            <Select
+              value={watch("customerType")}
+              onValueChange={(value) => setValue("customerType", value as "WALK_IN" | "REGULAR" | "WHOLESALE")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="WALK_IN">WALK_IN</SelectItem>
+                <SelectItem value="REGULAR">REGULAR</SelectItem>
+                <SelectItem value="WHOLESALE">WHOLESALE</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          <FormField label="Customer Name" required error={errors.name?.message}>
+            <Input placeholder="John Doe" {...register("name")} />
+          </FormField>
+
+          <FormField label="Company Name" error={errors.companyName?.message}>
+            <Input placeholder="Acme Traders" {...register("companyName")} />
           </FormField>
         </CardContent>
       </Card>
@@ -253,43 +266,7 @@ export default function AddCustomers() {
   </CardContent>
 </Card>
 
-      <Card>
-        <CardHeader>
-          <h3 className="text-lg font-semibold">Basic Information</h3>
-          <p className="text-sm text-muted">Add customer identity and profile details.</p>
-        </CardHeader>
-
-        <CardContent className="grid gap-5 md:grid-cols-2">
-          <FormField label="Customer Code" error={errors.customerCode?.message}>
-            <Input placeholder="CUST001" {...register("customerCode")} />
-          </FormField>
-
-          <FormField label="Customer Type" error={errors.customerType?.message}>
-            <Select
-              value={watch("customerType")}
-              onValueChange={(value) => setValue("customerType", value as "WALK_IN" | "REGULAR" | "WHOLESALE")}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="WALK_IN">WALK_IN</SelectItem>
-                <SelectItem value="REGULAR">REGULAR</SelectItem>
-                <SelectItem value="WHOLESALE">WHOLESALE</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          <FormField label="Customer Name" required error={errors.name?.message}>
-            <Input placeholder="John Doe" {...register("name")} />
-          </FormField>
-
-          <FormField label="Company Name" error={errors.companyName?.message}>
-            <Input placeholder="Acme Traders" {...register("companyName")} />
-          </FormField>
-        </CardContent>
-      </Card>
-
+    
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Contact & Tax</h3>

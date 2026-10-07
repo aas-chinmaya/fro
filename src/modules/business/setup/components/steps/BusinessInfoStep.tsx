@@ -65,6 +65,14 @@ export default function BusinessInfoStep() {
   const industry = watch("info.industryId");
   const licenseType = watch("info.licenseTypeId");
   const logo = watch("info.logo");
+  const gstinField = register("info.gstin", {
+    onChange: (event) => {
+      const gstin = event.currentTarget.value.toUpperCase();
+      setValue("info.pan", gstin.length >= 12 ? gstin.slice(2, 12) : "", {
+        shouldDirty: true,
+      });
+    },
+  });
   const availableSubCategories = businessSubCategories.filter(
     (option) => !option.parentId || option.parentId === category
   );
@@ -447,7 +455,7 @@ export default function BusinessInfoStep() {
 
           <FormField label="GSTIN" required error={e?.gstin?.message}>
             <Input
-              {...register("info.gstin")}
+              {...gstinField}
               placeholder="Enter your 15 digit GSTIN No."
               className={`uppercase`}
               maxLength={15}

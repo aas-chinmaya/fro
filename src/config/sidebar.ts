@@ -36,9 +36,9 @@ import {
   // Sales
   FileText,
   FileCheck,
+  RotateCcw,
   CreditCard,
   FilePlus,
-  FileMinus,
 
   // Purchase
   ClipboardList,
@@ -67,6 +67,9 @@ import {
   Percent,
   FileCog,
   DatabaseBackup,
+  BadgeCheck,
+  UserRound,
+  FileMinus,
 } from "lucide-react";
 import { Doc } from "zod/v4/core";
 
@@ -242,69 +245,6 @@ export const sidebarItems: SidebarItem[] = [
   },
 
   {
-    title: "Inventory",
-    icon: Boxes,
-    children: [
-      {
-        title: "Stock",
-        href: "/inventory",
-        icon: Warehouse,
-      },
-      {
-        title: "Stock Adjustment",
-        href: "/inventory/adjustment",
-        icon: SlidersHorizontal,
-      },
-      {
-        title: "Stock Transfer",
-        href: "/inventory/transfer",
-        icon: ArrowRightLeft,
-      },
-      {
-        title: "Warehouses",
-        href: "/inventory/warehouses",
-        icon: Warehouse,
-      },
-    ],
-  },
-
-{
-  title: "Sales & Billing",
-  icon: ShoppingCart,
-  children: [
-    {
-      title: "Quotations",
-      href: "/sales/quotations",
-      icon: FileCheck,
-    },
-    {
-      title: "Delivery Challans",
-      href: "/sales/delivery-challans",
-      icon: Truck,
-    },
-    {
-      title: "Invoices",
-      href: "/sales/invoices",
-      icon: FileText,
-    },
-    {
-      title: "Payment Receipts",
-      href: "/sales/payment-receipts",
-      icon: CreditCard,
-    },
-    {
-      title: "Credit Notes",
-      href: "/sales/credit-notes",
-      icon: FileMinus,
-    },
-    {
-      title: "Debit Notes",
-      href: "/sales/debit-notes",
-      icon: FilePlus,
-    },
-  ],
-},
-  {
     title: "Purchase",
     icon: Receipt,
     children: [
@@ -352,9 +292,96 @@ export const sidebarItems: SidebarItem[] = [
   },
 
   {
+    title: "Warehouse",
+    icon: Warehouse,
+    children: [
+      {
+        title: "Rack Manage",
+        href: "/warehouse/rack-manage",
+        icon: Boxes,
+      },
+    ],
+  },
+
+  {
+    title: "Inventory",
+    icon: Boxes,
+    children: [
+      {
+        title: "Stock",
+        href: "/inventory",
+        icon: Warehouse,
+      },
+      {
+        title: "Stock Adjustment",
+        href: "/inventory/adjustment",
+        icon: SlidersHorizontal,
+      },
+      {
+        title: "Stock Transfer",
+        href: "/inventory/transfer",
+        icon: ArrowRightLeft,
+      },
+      {
+        title: "Warehouses",
+        href: "/inventory/warehouses",
+        icon: Warehouse,
+      },
+    ],
+  },
+
+  {
+    title: "Sales & Billing",
+    icon: ShoppingCart,
+    children: [
+      {
+        title: "Quotations",
+        href: "/sales/quotations",
+        icon: FileCheck,
+      },
+      {
+        title: "Delivery Challans",
+        href: "/sales/delivery-challans",
+        icon: Truck,
+      },
+      {
+        title: "Invoices",
+        href: "/sales/invoices",
+        icon: FileText,
+      },
+      {
+        title: "Payment Receipts",
+        href: "/sales/payment-receipts",
+        icon: CreditCard,
+      },
+      {
+        title: "Credit Notes",
+        href: "/sales/credit-notes",
+        icon: FileMinus,
+      },
+      {
+        title: "Debit Notes",
+        href: "/sales/debit-notes",
+        icon: FilePlus,
+      },
+    ],
+  },
+
+  {
     title: "Customers",
-    href: "/customers",
     icon: Users,
+    children: [
+      {
+        title: "All Customers",
+        href: "/customers/all-customers",
+        icon: UserRound,
+      },
+      {
+        title: "Loyalty Points",
+        href: "/customers/loyalty",
+        icon: BadgeCheck,
+      },
+    ],
   },
 
   {

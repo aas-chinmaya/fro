@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { z } from "zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,6 +26,7 @@ import { fetchRoles } from "@/modules/masters/store/masterSlice";
 import type { AppDispatch, RootState } from "@/store/store";
 
 const branchUserSchema = z.object({
+  existingUserId: z.string().optional(),
   fullName: z.string().min(2, "User name is required"),
   email: z.string().email("Enter a valid user email"),
   password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
@@ -67,7 +69,7 @@ const branchSchema = z.object({
 
   note: z.string().optional(),
 
-  users: z.array(branchUserSchema).min(1, "Add at least one branch user"),
+  users: z.array(branchUserSchema),
 });
 
 export type BranchUserFormData = z.infer<typeof branchUserSchema>;
@@ -134,18 +136,28 @@ export default function BranchForm({
   }, [initialValues, reset]);
 
   const submitForm = (data: BranchFormData) => {
-    if (!initialValues) {
-      const invalidUserIndex = data.users.findIndex(
-        (user) => !user.fullName || !user.email || !user.roleId || !user.password
-      );
+    const newUsers = data.users.filter((user) => !user.existingUserId);
 
-      if (invalidUserIndex >= 0) {
-        setError("users", {
-          type: "manual",
-          message: "Each user must include name, email, password and role.",
-        });
-        return;
-      }
+    if (!initialValues && newUsers.length === 0) {
+      setError("users", {
+        type: "manual",
+        message: "Add at least one branch user.",
+      });
+      return;
+    }
+
+    const invalidUserIndex = data.users.findIndex(
+      (user) =>
+        !user.existingUserId &&
+        (!user.fullName || !user.email || !user.roleId || !user.password)
+    );
+
+    if (invalidUserIndex >= 0) {
+      setError("users", {
+        type: "manual",
+        message: "Each new user must include name, email, password and role.",
+      });
+      return;
     }
 
     return onSubmit(data);
@@ -545,10 +557,28 @@ export default function BranchForm({
         <CardContent className="space-y-5">
           {fields.map((field, index) => (
             <div key={field.id} className="rounded-2xl border border-border p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h4 className="text-sm font-semibold text-text">User {index + 1}</h4>
+              {(() => {
+                const isExistingUser = Boolean(field.existingUserId);
 
-                {fields.length > 1 && (
+                return (
+                  <>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-text">
+                    User {index + 1}{isExistingUser ? " (Existing)" : " (New)"}
+                  </h4>
+                  {isExistingUser && (
+                    <p className="mt-1 text-sm text-muted">
+                      Important: To update this user, visit the{" "}
+                      <Link href="/users" className="text-primary underline underline-offset-2">
+                        Users page
+                      </Link>
+                      .
+                    </p>
+                  )}
+                </div>
+
+                {!isExistingUser && fields.length > 1 && (
                   <Button type="button" variant="outline" onClick={() => remove(index)}>
                     Remove
                   </Button>
@@ -557,19 +587,19 @@ export default function BranchForm({
 
               <div className="grid gap-5 md:grid-cols-2">
                 <FormField label="Full Name" required={!initialValues} error={errors.users?.[index]?.fullName?.message}>
-                  <Input placeholder="John Doe" {...register(`users.${index}.fullName`)} />
+                  <Input placeholder="John Doe" className={isExistingUser ? "cursor-not-allowed" : undefined} readOnly={isExistingUser} {...register(`users.${index}.fullName`)} />
                 </FormField>
 
                 <FormField label="Email Address" required={!initialValues} error={errors.users?.[index]?.email?.message}>
-                  <Input type="email" placeholder="user@company.com" {...register(`users.${index}.email`)} />
+                  <Input type="email" placeholder="user@company.com" className={isExistingUser ? "cursor-not-allowed" : undefined} readOnly={isExistingUser} {...register(`users.${index}.email`)} />
                 </FormField>
 
                 <FormField label="Password" required={!initialValues} error={errors.users?.[index]?.password?.message}>
-                  <Input type="password" placeholder="Create a password" {...register(`users.${index}.password`)} />
+                  <Input type="password" placeholder={isExistingUser ? "Not editable" : "Create a password"} className={isExistingUser ? "cursor-not-allowed" : undefined} readOnly={isExistingUser} {...register(`users.${index}.password`)} />
                 </FormField>
 
                 <FormField label="Contact Number" error={errors.users?.[index]?.contact?.message}>
-                  <Input placeholder="9876543210" {...register(`users.${index}.contact`)} />
+                  <Input placeholder="9876543210" className={isExistingUser ? "cursor-not-allowed" : undefined} readOnly={isExistingUser} {...register(`users.${index}.contact`)} />
                 </FormField>
 
                 <div className="md:col-span-2">
@@ -577,7 +607,7 @@ export default function BranchForm({
                     <Select
                       value={watch(`users.${index}.roleId`)}
                       onValueChange={(value) => setValue(`users.${index}.roleId`, value)}
-                      disabled={rolesLoading}
+                      disabled={rolesLoading || isExistingUser}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select a role"} />
@@ -593,6 +623,9 @@ export default function BranchForm({
                   </FormField>
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </div>
           ))}
 

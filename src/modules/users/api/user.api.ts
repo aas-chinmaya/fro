@@ -16,7 +16,7 @@ export const registerUser = async (
 ) => {
   try {
     const response = await api.post(
-      USER_ENDPOINTS.REGISTER,
+      USER_ENDPOINTS.ADD_BUSINESS_USER,
       body
     );
 

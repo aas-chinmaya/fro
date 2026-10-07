@@ -161,6 +161,7 @@ export const businessApi = {
       openingDate: (data as any).openingDate
         ? new Date((data as any).openingDate).toISOString()
         : undefined,
+      users: Array.isArray((data as any).users) ? (data as any).users : [],
     };
 
     if (data.branchCode) {

@@ -1,5 +1,5 @@
 // ============================================================
-// CREDIT NOTE TYPES
+// CREDIT NOTE TYPES — aligned with backend
 // ============================================================
 
 export type CreditNoteStatus =
@@ -24,6 +24,16 @@ export type CreditNoteSettlementStatus = "COMPLETED" | "CANCELLED";
 
 export type TaxType = "INTRA_STATE" | "INTER_STATE";
 
+export type GSTClassification = "GOODS" | "SERVICES";
+
+export type PaymentMethod =
+  | "CASH"
+  | "UPI"
+  | "CARD"
+  | "BANK_TRANSFER"
+  | "CHEQUE"
+  | "OTHER";
+
 export interface CreditNoteItem {
   id?: string;
   creditNoteId?: string;
@@ -33,8 +43,8 @@ export interface CreditNoteItem {
   itemName: string;
   description?: string | null;
   hsnSacCode?: string;
-  itemType?: string;
-  classification?: "GOODS" | "SERVICES";
+  itemType?: GSTClassification | string;
+  classification?: GSTClassification;
   unitCode?: string;
   unitName?: string;
   unit?: string;
@@ -62,10 +72,12 @@ export interface CreditNoteItem {
 export interface CreditNoteSettlement {
   id?: string;
   creditNoteId?: string;
-  type: CreditNoteSettlementType;
-  status: CreditNoteSettlementStatus;
-  settlementDate: string;
-  amount: number;
+  type?: CreditNoteSettlementType;
+  settlementType?: CreditNoteSettlementType;
+  status?: CreditNoteSettlementStatus;
+  settlementStatus?: CreditNoteSettlementStatus;
+  settlementDate?: string;
+  amount?: number;
   remarks?: string | null;
   notes?: string | null;
   createdAt?: string;
@@ -89,7 +101,6 @@ export interface CreditNote {
   customerGSTIN?: string | null;
   customerPAN?: string | null;
 
-  // Billing snapshot (optional, for print)
   billingAddressLine1?: string | null;
   billingCity?: string | null;
   billingState?: string | null;
@@ -117,7 +128,6 @@ export interface CreditNote {
   notes?: string | null;
   termsAndConditions?: string | null;
 
-  // Seller snapshot (print)
   sellerLegalName?: string | null;
   sellerTradeName?: string | null;
   sellerGSTIN?: string | null;
@@ -138,40 +148,37 @@ export interface CreditNote {
   deletedAt?: string | null;
 }
 
-/** Create body — items are minimal; totals computed server/client */
+/** Item shape required by backend CreateCreditNoteRequest */
 export interface CreateCreditNoteItem {
   productId: string;
-  itemName?: string;
-  itemCode?: string;
-  hsnSacCode?: string;
-  unit?: string;
+  itemCode: string;
+  itemName: string;
+  description?: string;
+  hsnSacCode: string;
+  itemType: GSTClassification;
+  unitCode: string;
+  unitName: string;
   quantity: number;
   unitPrice: number;
   discountAmount?: number;
-  discountType?: "PERCENTAGE" | "FIXED";
-  discountValue?: number;
-  gstRate?: number;
-  taxRate?: number;
+  taxableAmount: number;
+  gstRate: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  cessAmount?: number;
+  lineTotal: number;
+  lineNumber?: number;
 }
 
+/** Create body — matches backend CreateCreditNoteRequest */
 export interface CreateCreditNotePayload {
-  customerId: string;
-  customerName?: string;
-  customerPhone?: string | null;
-  customerGSTIN?: string | null;
-  salesInvoiceId?: string | null;
-  salesInvoiceNumber?: string | null;
-  creditNoteDate: string;
-  financialYear?: string | null;
+  creditNoteDate?: string;
   reason: CreditNoteReason;
-  taxType?: TaxType;
-  placeOfSupply?: string | null;
-  placeOfSupplyCode?: string | null;
-  items: CreateCreditNoteItem[];
-  remarks?: string | null;
-  notes?: string | null;
-  termsAndConditions?: string | null;
-  // Optional precomputed totals (client may send; backend can recompute)
+  customerId: string;
+  salesInvoiceId?: string;
+  totalItems?: number;
+  totalQuantity?: number;
   taxableAmount?: number;
   discountAmount?: number;
   cgstAmount?: number;
@@ -180,31 +187,27 @@ export interface CreateCreditNotePayload {
   cessAmount?: number;
   roundOffAmount?: number;
   grandTotal?: number;
-  status?: CreditNoteStatus;
+  remarks?: string;
+  notes?: string;
+  items: CreateCreditNoteItem[];
 }
 
-export interface UpdateCreditNotePayload {
-  reason?: CreditNoteReason;
-  remarks?: string | null;
-  notes?: string | null;
-  termsAndConditions?: string | null;
-  items?: CreateCreditNoteItem[];
-  taxableAmount?: number;
-  discountAmount?: number;
-  cgstAmount?: number;
-  sgstAmount?: number;
-  igstAmount?: number;
-  roundOffAmount?: number;
-  grandTotal?: number;
+/** Refund body — POST /:id/refund */
+export interface CreditNoteRefundPayload {
+  paymentMethod: PaymentMethod;
+  paymentDate?: string;
+  transactionReference?: string;
+  remarks?: string;
 }
 
-/** Settlement / adjustment action */
-export interface CreditNoteAdjustmentPayload {
-  type: CreditNoteSettlementType;
-  settlementDate: string;
-  amount: number;
-  remarks?: string | null;
-  notes?: string | null;
+/** Exchange body — POST /:id/exchange */
+export interface CreditNoteExchangePayload {
+  remarks?: string;
+}
+
+/** Cancel body — POST /:id/cancel */
+export interface CreditNoteCancelPayload {
+  reason: string;
 }
 
 export interface CreditNoteListParams {
@@ -225,10 +228,16 @@ export interface CreditNoteListResponse {
   success?: boolean;
   message?: string;
   data: CreditNote[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+  pagination?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
 }
 
 export interface CreditNoteResponse {

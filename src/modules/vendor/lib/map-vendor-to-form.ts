@@ -59,13 +59,20 @@ export const normalizeDocumentUrl = (
         "",
       );
 
-    return baseUrl
-      ? `${baseUrl}${
-          normalized.startsWith("/")
-            ? normalized
-            : `/${normalized}`
-        }`
-      : normalized;
+    if (!baseUrl) return normalized;
+
+    try {
+      // Upload paths are served from the API host, not beneath the API route
+      // prefix (for example, /api/v1).
+      return new URL(
+        normalized.startsWith("/")
+          ? normalized
+          : `/${normalized}`,
+        baseUrl,
+      ).toString();
+    } catch {
+      return normalized;
+    }
   }
 
   return (
@@ -162,8 +169,8 @@ export const mapVendorToFormValues = (
 
     logo:
       normalizeDocumentUrl(
-        vendor.logo ??
-          vendor.logoUrl,
+        vendor.logoUrl ??
+          vendor.logo,
       ) || null,
 
     createdBy:

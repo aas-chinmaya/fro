@@ -288,13 +288,4 @@ export const invoiceApi = baseApi.injectEndpoints({
 });
 
 
-export const {
-  useGetInvoicesQuery,
-  useGetInvoiceByIdQuery,
-  useCreateInvoiceMutation,
-  useUpdateInvoiceMutation,
-  useUpdateInvoiceStatusMutation,
-  useDeleteInvoiceMutation,
-  useCancelInvoiceMutation,
-  useDownloadInvoicePdfMutation,
-} = invoiceApi;
+export const { useGetInvoicesQuery, useGetInvoiceByIdQuery, useLazyGetInvoiceByIdQuery, useCreateInvoiceMutation, useUpdateInvoiceMutation, useUpdateInvoiceStatusMutation, useDeleteInvoiceMutation, useCancelInvoiceMutation, useDownloadInvoicePdfMutation, } = invoiceApi;

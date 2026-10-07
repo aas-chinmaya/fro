@@ -517,9 +517,9 @@ export default function CustomerDashboard() {
                         icon={
                           <Building2 size={14} />
                         }
-                        label="Business ID"
+                        label="Tenant ID"
                         value={
-                          customer.businessId ||
+                          customer.tenantId ||
                           "N/A"
                         }
                       />

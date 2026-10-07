@@ -84,8 +84,6 @@ export default function EditCustomers() {
   } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      businessId: "",
-      branchId: "",
       customerCode: "",
       customerType: "WALK_IN",
       name: "",
@@ -121,8 +119,6 @@ export default function EditCustomers() {
         if (!data) return;
 
         reset({
-          businessId: data.businessId || "",
-          branchId: data.branchId || "",
           customerCode: data.customerCode || "",
           customerType: data.customerType || "WALK_IN",
           name: data.name || "",
@@ -155,7 +151,6 @@ export default function EditCustomers() {
         ...data,
         updatedBy: user?.id || "",
         addresses: data.addresses.map((address) => ({
-          businessId: data.businessId,
           customerId,
           ...address,
         })),
@@ -168,7 +163,7 @@ export default function EditCustomers() {
 
       await customersService.updateCustomer(customerId, payload);
       notify.success("Customer updated successfully.");
-      router.push("/customers");
+      router.push("/customers/all-customers");
     } catch (error) {
       notify.error("Failed to update customer. Please try again.");
     }
@@ -183,7 +178,7 @@ export default function EditCustomers() {
     try {
       await customersService.deleteCustomer(customerId);
       notify.success("Customer deleted successfully.");
-      router.push("/customers");
+      router.push("/customers/all-customers");
     } catch (error) {
       notify.error("Failed to delete customer. Please try again.");
     }
@@ -193,20 +188,41 @@ export default function EditCustomers() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Business & Branch</h3>
-          <p className="text-sm text-muted">Required business and branch details.</p>
+          <h3 className="text-lg font-semibold">Basic Information</h3>
+          <p className="text-sm text-muted">Update customer identity and profile details.</p>
         </CardHeader>
 
         <CardContent className="grid gap-5 md:grid-cols-2">
-          <FormField label="Business ID" required error={errors.businessId?.message}>
-            <Input placeholder="Enter Business ID" {...register("businessId")} />
+          <FormField label="Customer Code" error={errors.customerCode?.message}>
+            <Input placeholder="CUST001" {...register("customerCode")} />
           </FormField>
 
-          <FormField label="Branch ID" required error={errors.branchId?.message}>
-            <Input placeholder="Enter Branch ID" {...register("branchId")} />
+          <FormField label="Customer Type" error={errors.customerType?.message}>
+            <Select
+              value={watch("customerType")}
+              onValueChange={(value) => setValue("customerType", value as "WALK_IN" | "REGULAR" | "WHOLESALE")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="WALK_IN">WALK_IN</SelectItem>
+                <SelectItem value="REGULAR">REGULAR</SelectItem>
+                <SelectItem value="WHOLESALE">WHOLESALE</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          <FormField label="Customer Name" required error={errors.name?.message}>
+            <Input placeholder="John Doe" {...register("name")} />
+          </FormField>
+
+          <FormField label="Company Name" error={errors.companyName?.message}>
+            <Input placeholder="Acme Traders" {...register("companyName")} />
           </FormField>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Address</h3>
@@ -347,44 +363,6 @@ export default function EditCustomers() {
         
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <h3 className="text-lg font-semibold">Basic Information</h3>
-          <p className="text-sm text-muted">Update customer identity and profile details.</p>
-        </CardHeader>
-
-        <CardContent className="grid gap-5 md:grid-cols-2">
-          <FormField label="Customer Code" error={errors.customerCode?.message}>
-            <Input placeholder="CUST001" {...register("customerCode")} />
-          </FormField>
-
-          <FormField label="Customer Type" error={errors.customerType?.message}>
-            <Select
-              value={watch("customerType")}
-              onValueChange={(value) => setValue("customerType", value as "WALK_IN" | "REGULAR" | "WHOLESALE")}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="WALK_IN">WALK_IN</SelectItem>
-                <SelectItem value="REGULAR">REGULAR</SelectItem>
-                <SelectItem value="WHOLESALE">WHOLESALE</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          <FormField label="Customer Name" required error={errors.name?.message}>
-            <Input placeholder="John Doe" {...register("name")} />
-          </FormField>
-
-          <FormField label="Company Name" error={errors.companyName?.message}>
-            <Input placeholder="Acme Traders" {...register("companyName")} />
-          </FormField>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Contact & Tax</h3>
@@ -472,7 +450,7 @@ export default function EditCustomers() {
       </Card>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-        <Button type="button" variant="secondary" onClick={() => router.push("/customers")}>
+        <Button type="button" variant="secondary" onClick={() => router.push("/customers/all-customers")}>
           Cancel
         </Button>
         {/* <Button type="button" variant="danger" onClick={handleDelete}>

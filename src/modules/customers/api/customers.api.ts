@@ -1,5 +1,6 @@
 import api from "@/services/api";
 import { CUSTOMER_ENDPOINTS } from "../endpoint/customers.endpoint";
+import { CustomerRewardConfig } from "../types";
 
 export const customerApi = {
   // Create new customer
@@ -54,5 +55,27 @@ export const customerApi = {
   // Delete customer
   delete(id: string) {
     return api.delete(CUSTOMER_ENDPOINTS.DELETE(id));
+  },
+
+  // Loyalty rewards config: fetch by businessId and branchId
+  getRewardConfig(businessId: string, branchId: string) {
+    return api.get(CUSTOMER_ENDPOINTS.REWARD_CONFIG_FETCH(businessId, branchId));
+  },
+
+  // Loyalty rewards config: create
+  createRewardConfig(data: CustomerRewardConfig) {
+    return api.post(CUSTOMER_ENDPOINTS.REWARD_CONFIG_CREATE, data);
+  },
+
+  // Loyalty rewards config: update
+  updateRewardConfig(businessId: string, data: Partial<CustomerRewardConfig>, branchId?: string | null) {
+    const safeBranchId = branchId || "all";
+    return api.patch(CUSTOMER_ENDPOINTS.REWARD_CONFIG_UPDATE(businessId, safeBranchId), data);
+  },
+
+  // Loyalty rewards config: delete
+  deleteRewardConfig(businessId: string, branchId?: string | null) {
+    const safeBranchId = branchId || "all";
+    return api.delete(CUSTOMER_ENDPOINTS.REWARD_CONFIG_DELETE(businessId, safeBranchId));
   },
 };

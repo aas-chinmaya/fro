@@ -55,6 +55,16 @@ function num(v: unknown) {
   return Number(v) || 0;
 }
 
+export function sanitizePlainText(raw: unknown, maxLen = 1000): string {
+  return String(raw ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/javascript\s*:/gi, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+
 export function emptyLineItem(): CreditNoteItemFormValues {
   return {
     productId: "",
@@ -111,33 +121,38 @@ export function getDefaultCreditNoteValues(): CreditNoteFormValues {
 /** Line calc — same GST split pattern as invoices */
 export function calcLine(
   item: {
-    quantity?: number | null;
-    unitPrice?: number | null;
-    rate?: number | null;
-    discountValue?: number | null;
-    discountAmount?: number | null;
+    quantity?: number | string | null;
+    unitPrice?: number | string | null;
+    rate?: number | string | null;
+    price?: number | string | null;
+    discount?: number | string | null;
+    discountValue?: number | string | null;
+    discountAmount?: number | string | null;
     discountType?: string | null;
-    gstRate?: number | null;
-    taxRate?: number | null;
+    gstRate?: number | string | null;
+    taxRate?: number | string | null;
   },
   taxType: TaxType = "INTRA_STATE",
 ) {
   const qty = num(item.quantity);
-  const unitPrice = num(item.unitPrice ?? item.rate);
-  const gross = qty * unitPrice;
+  const unitPrice = num(item.unitPrice ?? item.price ?? item.rate);
+  const gross = Math.round(qty * unitPrice * 100) / 100;
   const dtype = String(item.discountType || "PERCENTAGE").toUpperCase();
-  const discVal = num(item.discountValue ?? item.discountAmount);
+  const discVal = num(item.discount ?? item.discountValue ?? item.discountAmount);
   let discountAmount = 0;
   if (dtype === "FIXED") discountAmount = Math.min(discVal, gross);
   else discountAmount = (gross * discVal) / 100;
+  discountAmount = Math.round(Math.min(Math.max(discountAmount, 0), gross) * 100) / 100;
   const taxable = Math.max(0, Math.round((gross - discountAmount) * 100) / 100);
   const taxRate = num(item.gstRate ?? item.taxRate);
   const taxAmount = Math.round(((taxable * taxRate) / 100) * 100) / 100;
   const isInter = taxType === "INTER_STATE";
   const cgstAmt = isInter ? 0 : Math.round((taxAmount / 2) * 100) / 100;
   const sgstAmt = isInter ? 0 : Math.round((taxAmount - cgstAmt) * 100) / 100;
+  const lineTotal = Math.round((taxable + taxAmount) * 100) / 100;
   return {
-    discountAmount: Math.round(discountAmount * 100) / 100,
+    gross,
+    discountAmount,
     taxable,
     taxAmount,
     cgstRate: isInter ? 0 : taxRate / 2,
@@ -146,7 +161,9 @@ export function calcLine(
     cgstAmount: cgstAmt,
     sgstAmount: sgstAmt,
     igstAmount: isInter ? taxAmount : 0,
-    lineTotal: Math.round((taxable + taxAmount) * 100) / 100,
+    lineTotal,
+    total: lineTotal,
+    amount: taxable,
   };
 }
 
@@ -255,47 +272,99 @@ export function mapCreditNoteToFormValues(cn: CreditNote): CreditNoteFormValues 
   };
 }
 
+/**
+ * Map form values → backend CreateCreditNoteRequest.
+ * Required item fields: productId, itemCode, itemName, hsnSacCode,
+ * itemType, unitCode, unitName, quantity, unitPrice, taxableAmount,
+ * gstRate, lineTotal.
+ */
 export function toCreatePayload(values: CreditNoteFormValues) {
   const recomputed = applyTotalsToValues(values, undefined);
+  const filled = (recomputed.items || []).filter(
+    (it) => (it.itemName || "").trim() || it.productId,
+  );
+
+  const items = filled.map((it, index) => {
+    const unit = (it.unit || "PCS").trim() || "PCS";
+    const itemType =
+      it.classification === "SERVICES" ? ("SERVICES" as const) : ("GOODS" as const);
+    return {
+      productId: it.productId,
+      itemCode: (it.itemCode || "NA").trim() || "NA",
+      itemName: (it.itemName || "Item").trim() || "Item",
+      description: it.description || undefined,
+      hsnSacCode: (it.hsnSacCode || "NA").trim() || "NA",
+      itemType,
+      unitCode: unit,
+      unitName: unit,
+      quantity: num(it.quantity),
+      unitPrice: num(it.unitPrice),
+      discountAmount: num(it.discountAmount),
+      taxableAmount: num(it.taxableAmount),
+      gstRate: num(it.gstRate ?? it.taxRate),
+      cgstAmount: num(it.cgstAmount),
+      sgstAmount: num(it.sgstAmount),
+      igstAmount: num(it.igstAmount),
+      cessAmount: 0,
+      lineTotal: num(it.lineTotal),
+      lineNumber: index + 1,
+    };
+  });
+
+  const totalQuantity = items.reduce((s, x) => s + num(x.quantity), 0);
+
   return {
-    customerId: values.customerId,
-    customerName: values.customerName,
-    customerPhone: values.customerPhone || null,
-    customerGSTIN: values.customerGSTIN || null,
-    salesInvoiceId: values.salesInvoiceId || null,
-    salesInvoiceNumber: values.salesInvoiceNumber || null,
     creditNoteDate: values.creditNoteDate,
-    financialYear: values.financialYear || resolveFinancialYear(values.creditNoteDate),
     reason: values.reason,
-    taxType: values.taxType || "INTRA_STATE",
-    placeOfSupply: values.placeOfSupply || null,
-    placeOfSupplyCode: values.placeOfSupplyCode || null,
-    items: (recomputed.items || [])
-      .filter((it) => (it.itemName || "").trim() || it.productId)
-      .map((it) => ({
-        productId: it.productId || "temp",
-        itemName: it.itemName,
-        itemCode: it.itemCode,
-        hsnSacCode: it.hsnSacCode,
-        unit: it.unit || "PCS",
-        quantity: num(it.quantity),
-        unitPrice: num(it.unitPrice),
-        discountAmount: num(it.discountAmount),
-        discountType: it.discountType,
-        discountValue: num(it.discountValue),
-        gstRate: num(it.gstRate ?? it.taxRate),
-        taxRate: num(it.taxRate ?? it.gstRate),
-      })),
+    customerId: values.customerId,
+    salesInvoiceId: values.salesInvoiceId || undefined,
+    totalItems: items.length,
+    totalQuantity,
     taxableAmount: recomputed.taxableAmount,
     discountAmount: recomputed.discountAmount,
     cgstAmount: recomputed.cgstAmount,
     sgstAmount: recomputed.sgstAmount,
     igstAmount: recomputed.igstAmount,
+    cessAmount: recomputed.cessAmount ?? 0,
     roundOffAmount: recomputed.roundOffAmount,
     grandTotal: recomputed.grandTotal,
-    remarks: values.remarks || null,
-    notes: values.notes || null,
-    termsAndConditions: values.termsAndConditions || null,
-    status: values.status || "ISSUED",
+    remarks: values.remarks?.trim() || undefined,
+    notes: values.notes?.trim() || undefined,
+    items,
   };
+}
+
+
+export function creditNoteDateRange(
+  period: string,
+): { startDate?: string; endDate?: string } {
+  if (period === "all") return {};
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  switch (period) {
+    case "today":
+      return { startDate: fmt(now), endDate: fmt(now) };
+    case "7d": {
+      const from = new Date(now);
+      from.setDate(now.getDate() - 6);
+      return { startDate: fmt(from), endDate: fmt(now) };
+    }
+    case "30d": {
+      const from = new Date(now);
+      from.setDate(now.getDate() - 29);
+      return { startDate: fmt(from), endDate: fmt(now) };
+    }
+    case "month":
+      return {
+        startDate: fmt(new Date(now.getFullYear(), now.getMonth(), 1)),
+        endDate: fmt(now),
+      };
+    case "year":
+      return {
+        startDate: fmt(new Date(now.getFullYear(), 0, 1)),
+        endDate: fmt(now),
+      };
+    default:
+      return {};
+  }
 }

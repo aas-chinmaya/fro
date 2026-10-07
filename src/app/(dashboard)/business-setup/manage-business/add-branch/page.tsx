@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import Container from "@/components/common/Container";
@@ -36,22 +36,76 @@ export default function AddBranchPage() {
 	useEffect(() => {
 		if (!branchId) return;
 
-		setBranchLoading(true);
 		void dispatch(fetchBranchById(branchId))
 			.unwrap()
-			.then((result) => setBranch(result))
+			.then((result) => {
+				setBranch(result);
+				setBranchError(null);
+			})
 			.catch((error: unknown) => {
 				setBranchError(error instanceof Error ? error.message : "Unable to load branch.");
 			})
-			.finally(() => setBranchLoading(false));
+			.finally(() => {
+				setBranchLoading(false);
+			});
 	}, [branchId, dispatch]);
 
 	const business = businesses.find((record) => String(record.id) === businessId);
+	const branchInitialValues = useMemo(() => {
+		if (!branch) return undefined;
+
+		return {
+			branchName: String(branch.branchName ?? ""),
+			branchCode: String(branch.branchCode ?? ""),
+			status: String(branch.status ?? "ACTIVE").toUpperCase() === "INACTIVE" ? "Inactive" : "Active",
+			address1: String(branch.addressLine1 ?? ""),
+			country: String(branch.country ?? "India"),
+			state: String(branch.state ?? ""),
+			city: String(branch.city ?? ""),
+			pincode: String(branch.pincode ?? ""),
+			phone: String(branch.phone ?? ""),
+			email: String(branch.email ?? ""),
+			licenseNumber: String(branch.licenseNumber ?? ""),
+			GSTIN: String(branch.GSTIN ?? ""),
+			PAN: String(branch.PAN ?? ""),
+			openingDate: branch.openingDate ? String(branch.openingDate).slice(0, 10) : "",
+			note: String(branch.note ?? ""),
+			users: (() => {
+				const branchUsers = Array.isArray(branch.users) ? branch.users : [];
+				return branchUsers.length > 0
+					? branchUsers.map((user: Record<string, unknown>) => ({
+						existingUserId: String(user.id ?? ""),
+						fullName: String(user.fullName ?? user.name ?? ""),
+						email: String(user.email ?? ""),
+						password: "",
+						contact: String(user.contact ?? ""),
+						roleId: String(user.roleId ?? ""),
+					}))
+					: [{
+						fullName: "",
+						email: "",
+						password: "",
+						contact: "",
+						roleId: "",
+					}];
+			})(),
+		};
+	}, [branch]);
 
 	const handleSubmit = async (data: BranchFormData) => {
 		if (!branchId && (!data.users || data.users.length === 0)) {
 			throw new Error("At least one branch user is required.");
 		}
+
+		const usersPayload = (data.users ?? [])
+			.filter((user) => !branchId || !user.existingUserId)
+			.map((user) => ({
+			fullName: user.fullName ?? "",
+			email: user.email ?? "",
+			password: user.password ?? "",
+			contact: user.contact ?? "",
+			roleId: user.roleId ?? "",
+			}));
 
 		const payload = {
 			branchName: data.branchName,
@@ -70,13 +124,7 @@ export default function AddBranchPage() {
 			note: data.note,
 			openingDate: data.openingDate || undefined,
 			isActive: data.status.toUpperCase() === "ACTIVE",
-			users: !branchId ? data.users.map((user) => ({
-				fullName: user.fullName,
-				email: user.email,
-				password: user.password,
-				contact: user.contact,
-				roleId: user.roleId,
-			})) : undefined,
+			users: usersPayload,
 		};
 
 		if (branchId) {
@@ -117,41 +165,7 @@ export default function AddBranchPage() {
 			</div>
 
 			<BranchForm
-				initialValues={branch ? {
-					branchName: String(branch.branchName ?? ""),
-					branchCode: String(branch.branchCode ?? ""),
-					status: String(branch.status ?? "ACTIVE").toUpperCase() === "INACTIVE" ? "Inactive" : "Active",
-					address1: String(branch.addressLine1 ?? ""),
-					country: String(branch.country ?? "India"),
-					state: String(branch.state ?? ""),
-					city: String(branch.city ?? ""),
-					pincode: String(branch.pincode ?? ""),
-					phone: String(branch.phone ?? ""),
-					email: String(branch.email ?? ""),
-					licenseNumber: String(branch.licenseNumber ?? ""),
-					GSTIN: String(branch.GSTIN ?? ""),
-					PAN: String(branch.PAN ?? ""),
-					openingDate: branch.openingDate ? String(branch.openingDate).slice(0, 10) : "",
-					note: String(branch.note ?? ""),
-					users: (() => {
-						const branchUsers = Array.isArray(branch.users) ? branch.users : [];
-						return branchUsers.length > 0
-							? branchUsers.map((user: Record<string, unknown>) => ({
-								fullName: String(user.fullName ?? user.name ?? ""),
-								email: String(user.email ?? ""),
-								password: "",
-								contact: String(user.contact ?? ""),
-								roleId: String(user.roleId ?? ""),
-							}))
-							: [{
-								fullName: "",
-								email: "",
-								password: "",
-								contact: "",
-								roleId: "",
-							}];
-					})(),
-				} : undefined}
+				initialValues={branchInitialValues}
 				onCancel={() => router.push("/business-setup/manage-business")}
 				onSubmit={handleSubmit}
 			/>

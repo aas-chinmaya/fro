@@ -9,7 +9,7 @@ export function useVendorCategories() {
   const state = useAppSelector((root) => root.vendorCategories);
 
   useEffect(() => {
-    void dispatch(fetchVendorCategories({ page: 1, limit: 10 }));
+    void dispatch(fetchVendorCategories({ page: 1, limit: 1000 }));
   }, [dispatch]);
 
   return {

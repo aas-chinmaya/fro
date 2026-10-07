@@ -7,6 +7,23 @@ import type {
   User,
 } from "@/modules/users/types";
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  const maybeError = error as {
+    message?: string;
+    response?: {
+      data?: {
+        message?: string;
+      };
+    };
+  };
+
+  return maybeError?.response?.data?.message || maybeError?.message || fallback;
+};
+
 /* ==================================================
  * USERS STATE
  * ================================================== */
@@ -55,12 +72,8 @@ export const fetchUsers = createAsyncThunk<
         error
       );
 
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-
       return rejectWithValue(
-        "Failed to fetch users"
+        getErrorMessage(error, "Failed to fetch users")
       );
     }
   }
@@ -96,12 +109,8 @@ export const createUser = createAsyncThunk<
         error
       );
 
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-
       return rejectWithValue(
-        "Failed to create user"
+        getErrorMessage(error, "Failed to create user")
       );
     }
   }
@@ -145,12 +154,8 @@ export const updateUser = createAsyncThunk<
         error
       );
 
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-
       return rejectWithValue(
-        "Failed to update user"
+        getErrorMessage(error, "Failed to update user")
       );
     }
   }
@@ -182,12 +187,8 @@ export const deleteUser = createAsyncThunk<
         error
       );
 
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-
       return rejectWithValue(
-        "Failed to delete user"
+        getErrorMessage(error, "Failed to delete user")
       );
     }
   }

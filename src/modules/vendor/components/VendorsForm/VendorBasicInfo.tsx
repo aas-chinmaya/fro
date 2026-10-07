@@ -55,7 +55,7 @@ export default function VendorBasicInfo({ form }: Props) {
 
         <div className="grid gap-5 md:grid-cols-2">
           <FormField
-            label="Vendor Type"
+            label="Vendor Category"
             required
             error={fieldErrors.vendorType?.message}
           >
@@ -71,7 +71,7 @@ export default function VendorBasicInfo({ form }: Props) {
             >
               <SelectTrigger className="rounded-xl">
                 <SelectValue
-                  placeholder={categoriesLoading ? "Loading types..." : "Select type"}
+                  placeholder={categoriesLoading ? "Loading categories..." : "Select category"}
                 />
               </SelectTrigger>
               <SelectContent>
