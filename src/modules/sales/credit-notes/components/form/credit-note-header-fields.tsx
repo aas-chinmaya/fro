@@ -252,13 +252,7 @@ export function CreditNoteHeaderFields() {
                       ? `₹${formatINR(selectedInvoice.grandTotal)}`
                       : null,
                 },
-                {
-                  label: "Taxable",
-                  value:
-                    selectedInvoice.taxableAmount != null
-                      ? `₹${formatINR(selectedInvoice.taxableAmount)}`
-                      : null,
-                },
+          
                 {
                   label: "Place of supply",
                   value: selectedInvoice.placeOfSupply,
